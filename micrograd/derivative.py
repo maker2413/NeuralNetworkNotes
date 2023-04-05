@@ -87,4 +87,4 @@ b.grad = a.data * e.grad
 # will increase the value of L and increasing any number with a negative
 # gradient will decrease the value of L.
 
-draw_dot(L).render()
+draw_dot(L).render(directory='derivative-output')
