@@ -1,3 +1,5 @@
 This repository exists for me to study neural networks and various technologies
 around that field. The only reason this repository is public is in case anyone
 else can benefit from what I have learned.
+
+[[./back-propagation/][back-propagation]] is really the only working thing right now.
