@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+# Same libraries as before:
 import math
 from graphviz import Digraph
 
+# Same trace function as before:
 def trace(root):
     # builds a set of all nodes and edges in a graph
     nodes, edges = set(), set()
@@ -14,6 +16,7 @@ def trace(root):
     build(root)
     return nodes, edges
 
+# Same draw_dot function as before:
 def draw_dot(root):
     dot = Digraph(format='svg', graph_attr={'rankdir': 'LR'}) # LR = left to right
 
@@ -41,7 +44,9 @@ def draw_dot(root):
 
     return dot
 
-# Please refer to derivative.py for some insight into manually computing gradients.
+# Please refer to manual-backpropagation.py for some insight into manually
+# computing gradients.
+# This Value class has been expanded upon from manual-backpropagating.py
 class Value:
     def __init__(self, data, _children=(), _op='', label=''):
         self.data = data
@@ -86,8 +91,20 @@ class Value:
 
         return out
 
+    def __radd__(self, other): # other + self
+        return self + other
+
     def __rmul__(self, other): # other * self
         return self * other
+
+    def __rtruediv__(self, other): # other / self
+        return other / self.data
+
+    def __rpow__(self, other): # other**self
+        return other**self.data
+
+    def __rsub__(self, other): # other - self
+        return other - self.data
 
     def __truediv__(self, other): # self / other
         return self * other**-1
@@ -129,12 +146,11 @@ class Value:
                 for child in v._prev:
                     build_topo(child)
                 topo.append(v)
-        build_topo(o)
+        build_topo(self)
 
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()
-        
 
 # inputs x1,x2
 x1 = Value(2.0, label='x1')
@@ -143,19 +159,47 @@ x2 = Value(0.0, label='x2')
 w1 = Value(-3.0, label='w1')
 w2 = Value(1.0, label='w2')
 # bias of the neuron
+# - This number was chosen to give simpiler numbers to work with during
+#   backpropagation
 b = Value(6.8813735870195432, label='b')
 # x1*w1 + x2*w2 + b
 x1w1 = x1 * w1; x1w1.label = 'x1*w1'
 x2w2 = x2 * w2; x2w2.label = 'x2*w2'
 x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
 n = x1w1x2w2 + b; n.label = 'n'
-# -----
-e = (2*n).exp()
-o = (e - 1) / (e + 1)
-o.label = 'o'
-# -----
+o = n.tanh(); o.label = 'o'
+# # -----
+# e = (2*n).exp()
+# o = (e - 1) / (e + 1)
+# o.label = 'o'
+# # -----
 
 # back propagate gradient
 o.backward()
 
-draw_dot(o).render(directory='backpropagating-output')
+# There! We now have automated backpropagation.
+draw_dot(o).render(directory='auto-backpropagation-output')
+
+# All of this implements much of the same logic in PyTorch.
+# Let's look at how this same data can be built using PyTorch:
+import torch
+
+x1 = torch.Tensor([2.0]).double();               x1.requires_grad = True
+x2 = torch.Tensor([0.0]).double();               x2.requires_grad = True
+w1 = torch.Tensor([-3.0]).double();              w1.requires_grad = True
+w2 = torch.Tensor([1.0]).double();               w2.requires_grad = True
+b = torch.Tensor([6.8813735870195432]).double(); b.requires_grad = True
+
+n = x1*w1 + x2*w2 + b
+o = torch.tanh(n)
+
+o.backward()
+
+print('---')
+print('x2', x2.grad.item())
+print('w2', w2.grad.item())
+print('x1', x1.grad.item())
+print('w2', w2.grad.item())
+
+# Now that we have automated the backpropagation work let's look at:
+# micrograd.py

@@ -3,3 +3,5 @@
 This is simply my reimplementation of [[https://github.com/karpathy/micrograd][micrograd]] and exists only for me to learn
 more about neural network technologies. I worked on this while following along
 with this video: https://www.youtube.com/watch?v=VMj-3S1tku0.
+
+The first file in this directory
