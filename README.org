@@ -2,4 +2,7 @@ This repository exists for me to study neural networks and various technologies
 around that field. The only reason this repository is public is in case anyone
 else can benefit from what I have learned.
 
-[[./back-propagation/][back-propagation]] is really the only working thing right now.
+If this is your first time diving into Neural Networks I would highly recommend:
+[[https://www.youtube.com/playlist?list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ][Neural Networks: Zero to Hero]] by Andrej Karpathy.
+
+I would also recommend starting with [[./back-propagation/]].
