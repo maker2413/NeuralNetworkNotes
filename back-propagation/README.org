@@ -4,4 +4,6 @@ This is simply my reimplementation of [[https://github.com/karpathy/micrograd][m
 more about neural network technologies. I worked on this while following along
 with this video: https://www.youtube.com/watch?v=VMj-3S1tku0.
 
-The first file in this directory
+If this is also your introduction to Neural Networks like it was mine you should
+start with [[./manual-backpropagating.py]] and follow along with the video linked
+above.
