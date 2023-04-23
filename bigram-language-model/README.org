@@ -2,3 +2,16 @@
 
 This directory contains work from [[https://www.youtube.com/watch?v=PaCmpygFfXo&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ&index=2][part 2]] of Neural Networks: Zero to Hero by
 Andrej Karpathy. This directory goes through rebuilding [[https://github.com/karpathy/makemore][makemore]].
+
+The included `names.txt` dataset, as an example, has the most common 32K names
+takes from [ssa.gov](https://www.ssa.gov/oact/babynames/) for the year 2018. It
+looks like:
+#+begin_example
+emma
+olivia
+ava
+isabella
+sophia
+charlotte
+...
+#+end_example
