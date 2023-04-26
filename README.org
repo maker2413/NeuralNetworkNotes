@@ -5,4 +5,8 @@ else can benefit from what I have learned.
 If this is your first time diving into Neural Networks I would highly recommend:
 [[https://www.youtube.com/playlist?list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ][Neural Networks: Zero to Hero]] by Andrej Karpathy.
 
-I would also recommend starting with [[./back-propagation/]].
+If you are following along with the playlist linked above I would look at the
+directories in this repo in this order:
+- [[./back-propagation/]].
+- [[./bigram-language-model/]].
+- [[./multilayer-perceptron/]].
