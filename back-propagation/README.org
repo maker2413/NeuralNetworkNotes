@@ -7,13 +7,17 @@ more about neural network technologies. I worked on this while following along
 with this video: https://www.youtube.com/watch?v=VMj-3S1tku0.
 
 * Manual backpropagation
+#+begin_src python
+  (print "hello")
+#+end_src
+
 #+begin_src jupyter-python :results none :tangle micrograd.py
   import random
   x = random.random()
 #+end_src
 
 #+name: print
-#+begin_src jupyter-python :results raw drawer
+#+begin_src jupyter-python :results raw drawer :exports both
   print(x)
 #+end_src
 
@@ -23,7 +27,7 @@ Output:
 : 0.8731477248534765
 :end:
 
-#+begin_src jupyter-python :file image/manual-backpropagation.png
+#+begin_src jupyter-python :file image/manual-backpropagation.png :exports both
   import math
   # Importing the graphviv Digraph library to digram our math problems
   from graphviz import Digraph
