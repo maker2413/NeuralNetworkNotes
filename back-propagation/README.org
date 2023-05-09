@@ -27,7 +27,7 @@ Output:
 : 0.8731477248534765
 :end:
 
-#+begin_src jupyter-python :file image/manual-backpropagation.png :exports both
+#+begin_src jupyter-python :file image/manual-backpropagation.svg :exports both
   import math
   # Importing the graphviv Digraph library to digram our math problems
   from graphviz import Digraph
@@ -145,7 +145,7 @@ Output:
 #+end_src
 
 #+RESULTS:
-[[file:image/manual-backpropagation.png]]
+[[file:image/manual-backpropagation.svg]]
 
 # Local Variables:
 # org-image-actual-width: (1024)
