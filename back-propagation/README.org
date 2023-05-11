@@ -91,7 +91,7 @@ on our root node to kick off this backwards walkthrough of our equation.
 
 That was a lot to explain but it should all make sense when you read through
 it. With all of that explanation out of the way here is our new =Value= class:
-#+begin_src jupyter-python :results none :tangle no
+#+begin_src jupyter-python :results none
   # This Value class has been expanded upon from gradients section
   class Value:
       def __init__(self, data, _children=(), _op='', label=''):
@@ -281,7 +281,7 @@ And now let's see if we can successfully back propagate this and graph it:
 At this point our =Value= class implements much of the same logic that exists in
 =PyTorch= so let's take a look at how this same equation could be built using
 =PyTorch=. Let's begin by import =PyTorch=:
-#+begin_src jupyter-python :results none
+#+begin_src jupyter-python :results none :tangle no
   import torch
 #+end_src
 
@@ -304,7 +304,11 @@ that the Tensors will be in ~float64~ to match our =Value= class above:
 #+end_src
 
 Now PyTorch actually has a ~backward~ function just like we defined in our
-=Value= class so we can actually call that =o= just like we did above:
+=Value= class so we can actually call that =o= just like we did above. Also
+take note that when we want to print the value of an object when using PyTorch
+we use ~.item()~ to print the value. Without this we will simply print out the
+tensor data (this does include the value, but it also includes the shape and
+data type of the tensor):
 #+begin_src jupyter-python :exports both :tangle no
   # Let's print out the value of o to confirm it is the same as our above example
   print(o.data.item())
@@ -342,6 +346,34 @@ propagation using our =Value= class and confirmed that it matches the outputs of
 PyTorch.
 
 * Implementing micrograd
+  So to continue we are going to build out neural network using our =Value=
+  class that we created. Before we do that though let's talk about how the math
+  we built out actually replicates a neural network ([[https://cs231n.github.io/convolutional-networks/][reference]]).
+
+  A high level view of a neural network could be summarized like this:
+  [[file:images/neural_net.jpeg]]
+
+  In short a neural network is a layer of input neurons, =N= number of hidden
+  layers of neurons in the middle, and an output layer of neurons. The hidden
+  layers do some form of manipulation on the input data to form the output
+  layer. Each of these neurons can be visualized like:
+  [[file:images/neuron_model.jpeg]]
+
+  Now in a biological world neurons are incredibly complicated and still not
+  fully understood, but in the mathematical sense they can be represented by the
+  image above. We can describe this model as having some amount of inputs
+  (=x='s). These =x= inputs are interacted with synapses (=w='s)
+  multiplicatively (=wx=) and passed to the cell body of the neuron. The cell
+  body of the neuron has some sort of bias (=b=). This can be thought of as the
+  innate trigger happiness of this neuron (meaning it can increase or decrease
+  the trigger happiness of this neuron), which is added to the sum of all of our
+  =wx= inputs. Finally this is run through some sort of activation function =f=.
+
+  The output of our neuron then could be written in the mathematical expression:
+  \begin{equation}
+  f(\sum_{i} w_ix_i + b)
+  \end{equation}
+
 
 # Local Variables:
 # org-image-actual-width: (1024)
