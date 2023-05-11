@@ -74,15 +74,15 @@ We can then get a set of y's by calling ~f~ on our =xs=:
 
 We can then plot our =xs= and =ys=:
 #+name: xyplot
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :tangle gradients.py :file images/plot.png
   plt.plot(xs, ys)
 #+end_src
 
 #+RESULTS: xyplot
 :results:
-| <matplotlib.lines.Line2D | at | 0x7f75920b7190> |
+| <matplotlib.lines.Line2D | at | 0x7f9804dcf190> |
 #+attr_org: :width 780
-[[file:./.ob-jupyter/d9aa49e74c5951f40d69299e0a7d047c624fa748.png]]
+[[file:images/plot.png]]
 :end:
 
 From here what we can think through and test is what would be the derivative
@@ -218,3 +218,7 @@ and =b= were:
 : d2: 4.0001
 : slope: 0.9999999999976694
 :end:
+
+# Local Variables:
+# org-image-actual-width: (1024)
+# End:
