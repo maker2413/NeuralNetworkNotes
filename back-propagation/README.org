@@ -1,151 +1,347 @@
 #+TITLE: Micrograd
 #+PROPERTY: header-args:jupyter-python :session micrograd
 #+PROPERTY: header-args:jupyter-python+ :async yes
-#+PROPERTY: header-args:jupyter-python+ :exports both
+#+PROPERTY: header-args:jupyter-python+ :tangle micrograd.py
 #+PROPERTY: header-args:jupyter-python+ :results raw drawer
 #+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
-#+PROPERTY: comments: yes
+
+This is the second part of my notes on neural networks. The first part was on
+[[../gradients/][gradients]] and that part should be viewed first if this neural networks are new
+to you.
 
 This is simply my reimplementation of [[https://github.com/karpathy/micrograd][micrograd]] and exists only for me to learn
 more about neural network technologies. I worked on this while following along
 with this video: https://www.youtube.com/watch?v=VMj-3S1tku0.
 
-To begin with let's talk about what it means to "train" neural network or what
-is even going on inside or neural network. At the core of it neural networks use
-[[https://www.khanacademy.org/math/multivariable-calculus/applications-of-multivariable-derivatives/optimizing-multivariable-functions/a/what-is-gradient-descent][gradient descent]] to tweak themselves to get closer to a lower their "loss" or in
-other words get closer to our expected outcome when we provide them with input
-data. This gradient descent operation is performed by [[https://en.wikipedia.org/wiki/Backpropagation][backpropagation]]
-generally. Let's just dive into it from here following along with the video
-linked above.
+#+begin_src jupyter-python :results none :exports none
+  # This file was generated from the code blocks in ./README.org.
+#+end_src
 
-* Manual backpropagation
-  #+begin_src jupyter-python :results none :tangle micrograd.py
-    import math
-    # Importing the graphviz Digraph library to diagram our math problems
-    from graphviz import Digraph
-  #+end_src
+In the previous section of this repo we built out a couple of functions to graph
+our equations and we will be reusing these functions in this example. Let's
+start by importing some python libraries:
+#+begin_src jupyter-python :results none
+  #!/usr/bin/env python
+  # Same libraries as before:
+  import math
+  from graphviz import Digraph
+#+end_src
 
-  #+begin_src jupyter-python :results none
-    # trace pieces together all of the nodes in our math problems
-    def trace(root):
-        # builds a set of all nodes and edges in a graph
-        nodes, edges = set(), set()
-        def build(v):
-            if v not in nodes:
-                nodes.add(v)
-                for child in v._prev:
-                    edges.add((child, v))
-                    build(child)
-        build(root)
-        return nodes, edges
+Now let's create those graphing functions previously mentioned:
+#+begin_src jupyter-python :results none
+  # Same trace function as before:
+  def trace(root):
+      # builds a set of all nodes and edges in a graph
+      nodes, edges = set(), set()
+      def build(v):
+          if v not in nodes:
+              nodes.add(v)
+              for child in v._prev:
+                  edges.add((child, v))
+                  build(child)
+      build(root)
+      return nodes, edges
 
-    # draw_dot is used to draw a digram of our math problems from a root node
-    def draw_dot(root):
-        dot = Digraph(format='svg', graph_attr={'rankdir': 'LR'}) # LR = left to right
+  # Same draw_dot function as before:
+  def draw_dot(root):
+      dot = Digraph(format='svg', graph_attr={'rankdir': 'LR'}) # LR = left to right
 
-        nodes, edges = trace(root)
-        for n in nodes:
-            uid = str(id(n))
-            # for any value in the graph, create a rectangular ('record') node for it
-            dot.node(
-                name = uid, label = "{ %s | data %.4f | grad %.4f }" % (
-                    n.label,
-                    n.data,
-                    n.grad
-                ),
-                shape='record'
-            )
-            if n._op:
-                # if this value is a result of some operation, create an op node for it
-                dot.node(name = uid + n._op, label = n._op)
-                # and connect this node to it
-                dot.edge(uid + n._op, uid)
+      nodes, edges = trace(root)
+      for n in nodes:
+          uid = str(id(n))
+          # for any value in the graph, create a rectangular ('record') node for it
+          dot.node(
+              name = uid, label = "{ %s | data %.4f | grad %.4f }" % (
+                  n.label,
+                  n.data,
+                  n.grad
+              ),
+              shape='record'
+          )
+          if n._op:
+              # if this value is a result of some operation, create an op node for it
+              dot.node(name = uid + n._op, label = n._op)
+              # and connect this node to it
+              dot.edge(uid + n._op, uid)
 
-        for n1, n2 in edges:
-            # connect n1 to the op node of n2
-            dot.edge(str(id(n1)), str(id(n2)) + n2._op)
+      for n1, n2 in edges:
+          # connect n1 to the op node of n2
+          dot.edge(str(id(n1)), str(id(n2)) + n2._op)
 
-        return dot
-  #+end_src
+      return dot
+#+end_src
 
-  #+begin_src jupyter-python :results none :tangle micrograd.py
-    # Our Value class implements logic similar to a Tensor class found in PyTorch
-    class Value:
-        def __init__(self, data, _children=(), _op='', label=''):
-            self.data = data
-            self.grad = 0.0
-            self._prev = set(_children)
-            self._op = _op
-            self.label = label
+We previously discussed how to back propagate gradients manually and now we are
+going to expand on our =Value= class so that we can more easily automate back
+propagation.
 
-        def __repr__(self):
-            return f"Value(data={self.data})"
+We are going to start doing this by reimplementing the =Value= class we had
+previous built out in the last section, however this time we are going to expand
+its functionality to support a few more [[https://blog.finxter.com/python-list-of-dunder-methods/][dunder]] methods to expand its
+capabilities. We are also going to a new property to our init method called
+~_backward~. This property will be used to keep track how each of our nodes are
+chained together so that we can walk backwards through our nodes. Along with
+this each of our operator dunder methods will now have to track which node they
+are paired with so we can calculate the gradients.
 
-        def __add__(self, other):
-            out = Value(self.data + other.data, (self, other), '+')
-            return out
+Finally we are going to define a ~_backward~ function in each of our dunder
+methods that will calculate the gradient of each node. Along with this we are
+going to define a ~backward~ function in our class that we will be able to call
+on our root node to kick off this backwards walkthrough of our equation.
 
-        def __mul__(self, other):
-            out = Value(self.data * other.data, (self, other), '*')
-            return out
+That was a lot to explain but it should all make sense when you read through
+it. With all of that explanation out of the way here is our new =Value= class:
+#+begin_src jupyter-python :results none :tangle no
+  # This Value class has been expanded upon from gradients section
+  class Value:
+      def __init__(self, data, _children=(), _op='', label=''):
+          self.data = data
+          self.grad = 0.0
+          self._backward = lambda: None
+          self._prev = set(_children)
+          self._op = _op
+          self.label = label
 
-        def tanh(self):
-            x = self.data
-            t = (math.exp(2*x) - 1)/(math.exp(2*x) + 1)
-            out = Value(t, (self, ), 'tanh')
-            return out
+      def __repr__(self):
+          return f"Value(data={self.data})"
 
-        def exp(self):
-            x = self.data
-            out = Value(math.exp(x), (self, ), 'exp')
-            return out
-  #+end_src
+      def __add__(self, other):
+          other = other if isinstance(other, Value) else Value(other)
+          out = Value(self.data + other.data, (self, other), '+')
 
-  #+begin_src jupyter-python :file images/manual-backpropagation.svg
-    a = Value(2.0, label='a')
-    b = Value(-3.0, label='b')
-    c = Value(10.0, label='c')
-    e = a*b; e.label = 'e'
-    d = e + c; d.label = 'd'
-    f = Value(-2.0, label='f')
-    L = d * f; L.label = 'L'
+          def _backward():
+              self.grad += 1.0 * out.grad
+              other.grad += 1.0 * out.grad
+          out._backward = _backward
 
-    # Manually back propagating the gradients for each node.
-    # for information on how this is done:
-    # https://en.wikipedia.org/wiki/Derivative#Rules_of_computation
-    L.grad = 1.0
-    f.grad = d.data * L.grad
-    d.grad = f.data * L.grad
-    c.grad = d.grad
-    e.grad = d.grad
-    a.grad = b.data * e.grad
-    b.grad = a.data * e.grad
+          return out
 
-    # When backpropagating gradients manually:
-    # - The root node always has a gradient of 1. This is due to the fact that
-    #   increasing or decreasing the value of the root node directly effects our
-    #   answer by the amount increased or decreased.
-    # - When multiplying two nodes together the gradient of one node is equal to
-    #   the value of the other node multiplied by the gradient of their product.
-    # - When adding two nodes together the gradient of each node will be equal to
-    #   the gradient of their sum. This is because increasing or decreasing the
-    #   value of either node in the addition will directly effect the sum.
-    # - When using hyperbolic functions you can reference the Derivatives section
-    #   of the wikipedia page on hyberbolic functions:
-    #   https://en.wikipedia.org/wiki/Hyperbolic_functions
+      def __mul__(self, other):
+          other = other if isinstance(other, Value) else Value(other)
+          out = Value(self.data * other.data, (self, other), '*')
 
-    # With the gradients dictated, when increasing any number with a positive
-    # gradient will increase the value of L and increasing any number with a
-    # negative gradient will decrease the value of L.
+          def _backward():
+              self.grad += other.data * out.grad
+              other.grad += self.data * out.grad
+          out._backward = _backward
 
-    # Let's draw our backpropagated problem at this point:
-    draw_dot(L)
-  #+end_src
+          return out
 
-  #+RESULTS:
-  :results:
-  [[file:images/manual-backpropagation.svg]]
-  :end:
+      def __pow__(self, other):
+          assert isinstance(other, (int, float)), "only supporting int/float powers for now"
+          out = Value(self.data**other, (self,), f'**{other}')
+
+          def _backward():
+              self.grad += other * (self.data ** (other - 1)) * out.grad
+          out._backward = _backward
+
+          return out
+
+      def __radd__(self, other): # other + self
+          return self + other
+
+      def __rmul__(self, other): # other * self
+          return self * other
+
+      def __rtruediv__(self, other): # other / self
+          return other / self.data
+
+      def __rpow__(self, other): # other**self
+          return other**self.data
+
+      def __rsub__(self, other): # other - self
+          return other - self.data
+
+      def __truediv__(self, other): # self / other
+          return self * other**-1
+
+      def __neg__(self): # -self
+          return self * -1
+
+      def __sub__(self, other): # self - other
+          return self + (-other)
+
+      def tanh(self):
+          x = self.data
+          t = (math.exp(2*x) - 1)/(math.exp(2*x) + 1)
+          out = Value(t, (self, ), 'tanh')
+
+          def _backward():
+              self.grad += (1 - t**2) * out.grad
+          out._backward = _backward
+
+          return out
+
+      def exp(self):
+          x = self.data
+          out = Value(math.exp(x), (self, ), 'exp')
+
+          def _backward():
+              self.grad += out.data * out.grad
+          out._backward = _backward
+
+          return out
+
+      # used to kick off our back propagation
+      def backward(self):
+          # build a topologic graph
+          topo = []
+          visited = set()
+          def build_topo(v):
+              if v not in visited:
+                  visited.add(v)
+                  for child in v._prev:
+                      build_topo(child)
+                  topo.append(v)
+          build_topo(self)
+
+          self.grad = 1.0
+          for node in reversed(topo):
+              node._backward()
+
+#+end_src
+
+Now let's reimplement the final equation we put together in the last section and
+see if we can automatically back propagate the gradients in our equation:
+#+begin_src jupyter-python :tangle no :results none
+  # inputs x1,x2
+  x1 = Value(2.0, label='x1')
+  x2 = Value(0.0, label='x2')
+  # weights w1,w2
+  w1 = Value(-3.0, label='w1')
+  w2 = Value(1.0, label='w2')
+  # bias of the neuron
+  # - This number was chosen to give simpiler numbers to work with during
+  #   backpropagation
+  b = Value(6.8813735870195432, label='b')
+  # x1*w1 + x2*w2 + b
+  x1w1 = x1 * w1; x1w1.label = 'x1*w1'
+  x2w2 = x2 * w2; x2w2.label = 'x2*w2'
+  x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+  n = x1w1x2w2 + b; n.label = 'n'
+  o = n.tanh(); o.label = 'o'
+#+end_src
+
+With those redeclared in our new =Value= class we should be able to kick off
+back propagation like this:
+#+begin_src jupyter-python :tangle no :results none
+  # back propagate gradient
+  o.backward()
+#+end_src
+
+Let's now graph our equation and see if it looks right:
+#+name: graph
+#+begin_src jupyter-python :tangle no :exports both :file images/graph.svg
+  draw_dot(o)
+#+end_src
+
+#+RESULTS: graph
+:results:
+[[file:images/graph.svg]]
+:end:
+
+Yes! We have successfully back propagated automatically. Let's also test out
+some of the other operations we added to our =Value= class:
+#+begin_src jupyter-python :tangle no :results none
+  # inputs x1,x2
+  x1 = Value(2.0, label='x1')
+  x2 = Value(0.0, label='x2')
+  # weights w1,w2
+  w1 = Value(-3.0, label='w1')
+  w2 = Value(1.0, label='w2')
+  # bias of the neuron
+  # - This number was chosen to give simpiler numbers to work with during
+  #   backpropagation
+  b = Value(6.8813735870195432, label='b')
+  # x1*w1 + x2*w2 + b
+  x1w1 = x1 * w1; x1w1.label = 'x1*w1'
+  x2w2 = x2 * w2; x2w2.label = 'x2*w2'
+  x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+  n = x1w1x2w2 + b; n.label = 'n'
+  # -----
+  e = (2*n).exp()
+  o = (e - 1) / (e + 1)
+  o.label = 'o'
+  # -----
+#+end_src
+
+And now let's see if we can successfully back propagate this and graph it:
+#+name: graph2
+#+begin_src jupyter-python :tangle no :exports both :file images/graph2.svg
+  o.backward()
+
+  draw_dot(o)
+#+end_src
+
+#+RESULTS: graph2
+:results:
+[[file:images/graph2.svg]]
+:end:
+
+At this point our =Value= class implements much of the same logic that exists in
+=PyTorch= so let's take a look at how this same equation could be built using
+=PyTorch=. Let's begin by import =PyTorch=:
+#+begin_src jupyter-python :results none
+  import torch
+#+end_src
+
+And now we can build out our equation using Tensors (in short Tensors are
+[[https://www.doitpoms.ac.uk/tlplib/tensors/what_is_tensor.php][multi deminsional arrays]] of scalars). You will also notice that we are setting
+~requires_grad~ to true for each of our nodes. This is because by default
+PyTorch doesn't keep track of gradient values for leaf nodes. This is done for
+efficiency as normally you would not need to track gradients for your input
+data. You will also notice that we are casting each of Tensors to ~double~ so
+that the Tensors will be in ~float64~ to match our =Value= class above:
+#+begin_src jupyter-python :results none :tangle no
+  x1 = torch.Tensor([2.0]).double();               x1.requires_grad = True
+  x2 = torch.Tensor([0.0]).double();               x2.requires_grad = True
+  w1 = torch.Tensor([-3.0]).double();              w1.requires_grad = True
+  w2 = torch.Tensor([1.0]).double();               w2.requires_grad = True
+  b = torch.Tensor([6.8813735870195432]).double(); b.requires_grad = True
+
+  n = x1*w1 + x2*w2 + b
+  o = torch.tanh(n)
+#+end_src
+
+Now PyTorch actually has a ~backward~ function just like we defined in our
+=Value= class so we can actually call that =o= just like we did above:
+#+begin_src jupyter-python :exports both :tangle no
+  # Let's print out the value of o to confirm it is the same as our above example
+  print(o.data.item())
+
+  # Then let's back propagate our gradients
+  o.backward()
+#+end_src
+
+#+RESULTS:
+:results:
+: 0.7071066904050358
+:end:
+
+We did in fact get the same value for =o=. Let's also print out the gradients of
+our inputs and see if we get the same results as before:
+#+begin_src jupyter-python :exports both :tangle no
+  print('---')
+  print('x2', x2.grad.item())
+  print('w2', w2.grad.item())
+  print('x1', x1.grad.item())
+  print('w1', w1.grad.item())
+#+end_src
+
+#+RESULTS:
+:results:
+: ---
+: x2 0.5000001283844369
+: w2 0.0
+: x1 -1.5000003851533106
+: w1 1.0000002567688737
+:end:
+
+We did get the same results! This means we have successfully automated back
+propagation using our =Value= class and confirmed that it matches the outputs of
+PyTorch.
+
+* Implementing micrograd
 
 # Local Variables:
 # org-image-actual-width: (1024)
