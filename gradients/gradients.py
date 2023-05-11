@@ -156,33 +156,19 @@ d = e + c; d.label = 'd'
 f = Value(-2.0, label='f')
 L = d * f; L.label = 'L'
 
+draw_dot(L)
+
 # Manually back propagating the gradients for each node.
 # for information on how this is done:
 # https://en.wikipedia.org/wiki/Derivative#Rules_of_computation
 L.grad = 1.0
+
 f.grad = d.data * L.grad
 d.grad = f.data * L.grad
+
 c.grad = d.grad
 e.grad = d.grad
 a.grad = b.data * e.grad
 b.grad = a.data * e.grad
 
-# When backpropagating gradients manually:
-# - The root node always has a gradient of 1. This is due to the fact that
-#   increasing or decreasing the value of the root node directly effects our
-#   answer by the amount increased or decreased.
-# - When multiplying two nodes together the gradient of one node is equal to
-#   the value of the other node multiplied by the gradient of their product.
-# - When adding two nodes together the gradient of each node will be equal to
-#   the gradient of their sum. This is because increasing or decreasing the
-#   value of either node in the addition will directly effect the sum.
-# - When using hyperbolic functions you can reference the Derivatives section
-#   of the wikipedia page on hyberbolic functions:
-#   https://en.wikipedia.org/wiki/Hyperbolic_functions
-
-# With the gradients dictated, when increasing any number with a positive
-# gradient will increase the value of L and increasing any number with a
-# negative gradient will decrease the value of L.
-
-# Let's draw our backpropagated problem at this point:
 draw_dot(L)

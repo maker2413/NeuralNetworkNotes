@@ -329,8 +329,14 @@ whole problem.
   the Tensor class that can be found in =PyTorch=, which is the leading python
   library for neural networks at the time of writing this.
 
+  If you aren't too familiar with python this code could look a little daunting,
+  but essentially we are just defining a class that we can call when we want to
+  create values of data. The double underscore functions essentially just allow
+  us to override and define how operators work with our =Value= class. The
+  ~__init__~ function allows us to define what happens when a value is created.
+
   Now let's create some variables using our new =Value= class:
-  #+begin_src jupyter-python :exports both
+  #+begin_src jupyter-python :results none
     a = Value(2.0, label='a')
     b = Value(-3.0, label='b')
     c = Value(10.0, label='c')
@@ -338,38 +344,92 @@ whole problem.
     d = e + c; d.label = 'd'
     f = Value(-2.0, label='f')
     L = d * f; L.label = 'L'
+  #+end_src
 
+  And now we can visualize our entire equation we built out with the ~draw_dot~
+  function we defined earlier:
+  #+name: graph
+  #+begin_src jupyter-python :exports both :file images/graph.svg
+    draw_dot(L)
+  #+end_src
+
+  This will give us the following graph:
+  #+RESULTS: graph
+  :results:
+  [[file:images/graph.svg]]
+  :end:
+
+  So now we have successfully created and graphed our equation. Next we are
+  going to set each of the gradients for each of the nodes in our equation. We
+  are going to do this through a process called back propagation, which will be
+  covered more in depth in the next section of this repo. We are going to simply
+  be setting our gradients for each of these data nodes manually just to get an
+  understanding of how back propagation works.
+
+  To begin we should start with our root node or in this case =L=. Since =L= is
+  our final node in this equation and is the answer to our problem increasing
+  =L= would directly increase our output so therefore =L= has a gradient of
+  =1=. Let's start with =L= and work backwards:
+  #+begin_src jupyter-python :results none
     # Manually back propagating the gradients for each node.
     # for information on how this is done:
     # https://en.wikipedia.org/wiki/Derivative#Rules_of_computation
     L.grad = 1.0
+  #+end_src
+
+  From here we want to work backwards through our equation and calculate the
+  gradient of each node. We can do this like we did before by adding a small
+  value ~h~ each to a node and dividing ~L2 - L1~ by ~h~ or we can go over some
+  of the basic rules of gradients.
+
+  When we were calculating the slope of previous equation in the first section
+  of this article we discovered that =a= had a slope equal to =b= and =b= had a
+  slope equal to =a=. This is because one of the rules of calculating gradients
+  with respect to the root node is that when two nodes are being multiplied the
+  gradient of each node will be the data of the node it is being multiplied with
+  times the gradient of their product. With this in mind we can fill in the
+  gradients of =d= and =f=:
+  #+begin_src jupyter-python :results none
     f.grad = d.data * L.grad
     d.grad = f.data * L.grad
+  #+end_src
+
+  Let's look at some of the other rules we can follow to save some time doing
+  manual math:
+  - The root node always has a gradient of 1. This is due to the fact that
+    increasing or decreasing the value of the root node directly effects our
+    answer by the amount increased or decreased.
+  - When multiplying two nodes together the gradient of one node is equal to
+    the value of the other node multiplied by the gradient of their product.
+  - When adding two nodes together the gradient of each node will be equal to
+    the gradient of their sum. This is because increasing or decreasing the
+    value of either node in the addition will directly effect the sum.
+  - When using hyperbolic functions you can reference the Derivatives section
+    of the wikipedia page on hyberbolic functions:
+    https://en.wikipedia.org/wiki/Hyperbolic_functions
+
+  With these in mind let's fill in the gradients of our other nodes:
+  #+begin_src jupyter-python :results none
     c.grad = d.grad
     e.grad = d.grad
     a.grad = b.data * e.grad
     b.grad = a.data * e.grad
+  #+end_src
 
-    # When backpropagating gradients manually:
-    # - The root node always has a gradient of 1. This is due to the fact that
-    #   increasing or decreasing the value of the root node directly effects our
-    #   answer by the amount increased or decreased.
-    # - When multiplying two nodes together the gradient of one node is equal to
-    #   the value of the other node multiplied by the gradient of their product.
-    # - When adding two nodes together the gradient of each node will be equal to
-    #   the gradient of their sum. This is because increasing or decreasing the
-    #   value of either node in the addition will directly effect the sum.
-    # - When using hyperbolic functions you can reference the Derivatives section
-    #   of the wikipedia page on hyberbolic functions:
-    #   https://en.wikipedia.org/wiki/Hyperbolic_functions
+  With the gradients dictated we know that increasing any number with a positive
+  gradient will increase the value of L and increasing any number with a
+  negative gradient will decrease the value of L.
 
-    # With the gradients dictated, when increasing any number with a positive
-    # gradient will increase the value of L and increasing any number with a
-    # negative gradient will decrease the value of L.
-
-    # Let's draw our backpropagated problem at this point:
+  Finally let's draw our backpropagated problem at this point:
+  #+name: graph2
+  #+begin_src jupyter-python :exports both :file images/graph2.svg
     draw_dot(L)
   #+end_src
+
+  #+RESULTS: graph2
+  :results:
+  [[file:images/graph2.svg]]
+  :end:
 
 # Local Variables:
 # org-image-actual-width: (1024)
