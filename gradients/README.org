@@ -51,7 +51,7 @@ We can see that if we give our function a simple input of =3.0= we get back
 
 Now let's plot out this function so that we can see it's shape:
 #+name: xs
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :tangle gradients.py :exports both
   xs = np.arange(-5, 5, 0.25)
   xs
 #+end_src
@@ -329,7 +329,7 @@ whole problem.
   the Tensor class that can be found in =PyTorch=.
 
   Now let's create some variables using our new =Value= class:
-  #+begin_src jupyter-python
+  #+begin_src jupyter-python :tangle gradients.py
 
   #+end_src
 
