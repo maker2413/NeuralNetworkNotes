@@ -1,7 +1,7 @@
 #+TITLE: Gradient Descent
 #+PROPERTY: header-args:jupyter-python :session gradients
 #+PROPERTY: header-args:jupyter-python+ :async yes
-#+PROPERTY: header-args:jupyter-python+ :exports both
+#+PROPERTY: header-args:jupyter-python+ :tangle gradients.py
 #+PROPERTY: header-args:jupyter-python+ :results raw drawer
 #+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
 
@@ -18,13 +18,13 @@ data. This gradient descent operation is performed by [[https://en.wikipedia.org
 generally. Let's just dive into it from here following along with the video
 linked above.
 
-#+begin_src jupyter-python :results none :tangle gradients.py :exports none
+#+begin_src jupyter-python :results none :exports none
   # This file was generated from the code blocks in ./README.org.
 #+end_src
 
 To begin learning how gradient descent works like start by importing some
 simple python libraries:
-#+begin_src jupyter-python :results none :tangle gradients.py
+#+begin_src jupyter-python :results none
   import math
   import numpy as np
   import matplotlib.pyplot as plt
@@ -34,7 +34,7 @@ simple python libraries:
 Then let's define a scaler value function ~f~ of ~x~ that runs a simple
 equation on a given value and returns it:
 #+name: fofx
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   def f(x):
       return 3*x**2 - 4*x + 5
 
@@ -51,7 +51,7 @@ We can see that if we give our function a simple input of =3.0= we get back
 
 Now let's plot out this function so that we can see it's shape:
 #+name: xs
-#+begin_src jupyter-python :tangle gradients.py :exports both
+#+begin_src jupyter-python :exports both
   xs = np.arange(-5, 5, 0.25)
   xs
 #+end_src
@@ -69,7 +69,7 @@ We can see that x's is just an array of numbers from =-5= to =5= in steps of
 
 We can then get a set of y's by calling ~f~ on our =xs=:
 #+name: ys
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   ys = f(xs)
   ys
 #+end_src
@@ -87,7 +87,7 @@ We can then get a set of y's by calling ~f~ on our =xs=:
 
 We can then plot our =xs= and =ys=:
 #+name: xyplot
-#+begin_src jupyter-python :tangle gradients.py :file images/plot.png
+#+begin_src jupyter-python :file images/plot.png :exports both
   plt.plot(xs, ys)
 #+end_src
 
@@ -105,7 +105,7 @@ network would be tens of thousand of expressions long. In our simple example
 here though of a parabola we can look at the [[https://en.wikipedia.org/wiki/Derivative#Definition][definition of derivative]] and look
 at a couple of test cases:
 #+name: xincrease
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   h = 0.0001
   x = 3.0
   f(x + h)
@@ -120,7 +120,7 @@ slightly bigger as well, which lines up with our above graph:
 
 If we then run this through our derivative calculation:
 #+name: derivative
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   (f(x + h) - f(x))/h
 #+end_src
 
@@ -133,7 +133,7 @@ approximation.
 :end:
 
 Now let's look at a more complex case:
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   a = 2.0
   b = -3.0
   c = 10.0
@@ -148,7 +148,7 @@ Now let's look at a more complex case:
 
 Now let's look at the derivatives of =d= with respect to =a=, =b=, and =c=:
 #+name: slope
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   h = 0.0001
 
   # inputs
@@ -176,7 +176,7 @@ also see that the slope is equal to =b=:
 
 With that in mind let's look what happens when we increase the value of =b=:
 #+name: slope2
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   h = 0.0001
 
   # inputs
@@ -204,7 +204,7 @@ this time our slope is equal to the value of =a=:
 
 Finally we can look at what happens when we increase =c=:
 #+name: slope3
-#+begin_src jupyter-python :tangle gradients.py
+#+begin_src jupyter-python :exports both
   h = 0.0001
 
   # inputs
@@ -247,7 +247,7 @@ whole problem.
 
   To begin this effort let's create a couple of functions to graph math
   equations using the =Digraph= library:
-  #+begin_src jupyter-python :tangle gradients.py :results none
+  #+begin_src jupyter-python :results none
     # trace pieces together all of the nodes in our math problems
     def trace(root):
         # builds a set of all nodes and edges in a graph
@@ -292,7 +292,7 @@ whole problem.
 
   Now we will create a python class called =Value= where we will define how we
   can represent and manipulate data in our equations:
-  #+begin_src jupyter-python :tangle gradients.py :results none
+  #+begin_src jupyter-python :results none
     # Our Value class implements logic similar to a Tensor class found in PyTorch
     class Value:
         def __init__(self, data, _children=(), _op='', label=''):
@@ -326,11 +326,49 @@ whole problem.
   #+end_src
 
   As the comment in our code says this =Value= class implements logic similar to
-  the Tensor class that can be found in =PyTorch=.
+  the Tensor class that can be found in =PyTorch=, which is the leading python
+  library for neural networks at the time of writing this.
 
   Now let's create some variables using our new =Value= class:
-  #+begin_src jupyter-python :tangle gradients.py
+  #+begin_src jupyter-python :exports both
+    a = Value(2.0, label='a')
+    b = Value(-3.0, label='b')
+    c = Value(10.0, label='c')
+    e = a*b; e.label = 'e'
+    d = e + c; d.label = 'd'
+    f = Value(-2.0, label='f')
+    L = d * f; L.label = 'L'
 
+    # Manually back propagating the gradients for each node.
+    # for information on how this is done:
+    # https://en.wikipedia.org/wiki/Derivative#Rules_of_computation
+    L.grad = 1.0
+    f.grad = d.data * L.grad
+    d.grad = f.data * L.grad
+    c.grad = d.grad
+    e.grad = d.grad
+    a.grad = b.data * e.grad
+    b.grad = a.data * e.grad
+
+    # When backpropagating gradients manually:
+    # - The root node always has a gradient of 1. This is due to the fact that
+    #   increasing or decreasing the value of the root node directly effects our
+    #   answer by the amount increased or decreased.
+    # - When multiplying two nodes together the gradient of one node is equal to
+    #   the value of the other node multiplied by the gradient of their product.
+    # - When adding two nodes together the gradient of each node will be equal to
+    #   the gradient of their sum. This is because increasing or decreasing the
+    #   value of either node in the addition will directly effect the sum.
+    # - When using hyperbolic functions you can reference the Derivatives section
+    #   of the wikipedia page on hyberbolic functions:
+    #   https://en.wikipedia.org/wiki/Hyperbolic_functions
+
+    # With the gradients dictated, when increasing any number with a positive
+    # gradient will increase the value of L and increasing any number with a
+    # negative gradient will decrease the value of L.
+
+    # Let's draw our backpropagated problem at this point:
+    draw_dot(L)
   #+end_src
 
 # Local Variables:
