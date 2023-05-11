@@ -431,6 +431,74 @@ whole problem.
   [[file:images/graph2.svg]]
   :end:
 
+  This does cover the concept of back propagating gradients, but just to hammer
+  it in let's look at a more complex example:
+  #+begin_src jupyter-python :results none
+    # inputs x1,x2
+    x1 = Value(2.0, label='x1')
+    x2 = Value(0.0, label='x2')
+    # weights w1,w2
+    w1 = Value(-3.0, label='w1')
+    w2 = Value(1.0, label='w2')
+    # bias of the neuron
+    # - This number was chosen to give simpiler numbers to work with during
+    #   backpropagation
+    b = Value(6.8813735870195432, label='b')
+    # x1*w1 + x2*w2 + b
+    x1w1 = x1 * w1; x1w1.label = 'x1*w1'
+    x2w2 = x2 * w2; x2w2.label = 'x2*w2'
+    x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+    n = x1w1x2w2 + b; n.label = 'n'
+    o = n.tanh(); o.label = 'o'
+  #+end_src
+
+  Now let's graph out this equation:
+  #+name: graph3
+  #+begin_src jupyter-python :exports both :file images/graph3.svg
+    draw_dot(o)
+  #+end_src
+
+  This will give us:
+  #+RESULTS: graph3
+  :results:
+  [[file:images/graph3.svg]]
+  :end:
+
+  Now let's set each node's gradient starting with =o= by following the rules
+  stated above:
+  #+begin_src jupyter-python :results none
+    o.grad = 1.0
+    n.grad = 1 - (o.data**2)
+    x1w1x2w2.grad = n.grad
+    b.grad = n.grad
+    x1w1.grad = x1w1x2w2.grad
+    x2w2.grad = x1w1x2w2.grad
+    x1.grad = w1.data * x1w1.grad
+    w1.grad = x1.data * x1w1.grad
+    x2.grad = w2.data * x2w2.grad
+    w2.grad = x2.data * x2w2.grad
+  #+end_src
+
+  With that out of the way we can graph our equation again to see if all of our
+  gradients are set:
+  #+name: graph4
+  #+begin_src jupyter-python :exports both :file images/graph4.svg
+    draw_dot(o)
+  #+end_src
+
+  Which gives us:
+  #+RESULTS: graph4
+  :results:
+  [[file:images/graph4.svg]]
+  :end:
+
+  Manual backpropagation is quite tedious and unfeasible though so going forward
+  we won't be doing this manually anymore thankfully.
+
+  That covers the core concept of how an equation is back propagated. For more
+  information on how this is actually useful to use you should check out the
+  next section of my notes: [[../back-propagation/][back propagation]]
+
 # Local Variables:
 # org-image-actual-width: (1024)
 # End:
