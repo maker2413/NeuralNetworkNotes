@@ -379,7 +379,9 @@ PyTorch.
   by defining a class for Neurons that use our =Value= class. Our =Neuron=
   class will take =n= number of inputs so for our ~__init__~ method will take
   in a variable called =nin=. We will also make user of the ~__call__~ method
-  to implement the function we shown above:
+  to implement the function we shown above. Finally we will have a parameters
+  function which will come in handy latter to get a collection of all of the
+  parameters in our neural network:
   #+begin_src jupyter-python :results none
     import random
 
@@ -423,7 +425,9 @@ PyTorch.
   represent this in our code we are going to create a =Layer= class. Our
   =Layer= class is going to take in a =n= number of input neurons and =n=
   number of output neurons (nin and nout) and will keep track of it's own
-  output neurons so that we can chain layers together (outs):
+  output neurons so that we can chain layers together (outs). We also keep
+  track of the parameters within each layer, which in this case is essentially
+  a list of each of the neurons parameters:
   #+begin_src jupyter-python :results none
     # Let's create a layer of Neurons
     class Layer:
@@ -466,7 +470,9 @@ PyTorch.
   To complete the neural network diagram we are going to define a multi layer
   perceptron which will define in an =MLP= class. Our =MLP= class will take =n=
   number of inputs and this time will take list of =n= number of outputs, which
-  define the sizes of all of the layers in our MLP:
+  define the sizes of all of the layers in our MLP. We will also yet again have
+  a parameters function which will keep track of each of the parameters in each
+  layer in our MLP:
   #+begin_src jupyter-python :results none
     # Let's create an MLP (Multi Layer Perceptron)
     class MLP:
@@ -507,9 +513,277 @@ PyTorch.
     draw_dot(n(x))
   #+end_src
 
+  As you may have expected this graph is quite involved at this point which is
+  why manually calculating the gradients of our nodes would be infeasible at
+  this point:
   #+RESULTS: mlpgraph
   :results:
   [[file:images/mlpgraph.svg]]
+  :end:
+
+* Back Propagation
+  So now that we can build out an entire MLP with our classes let's look at more
+  realistic example of how to back propagate our MLP and why we want to back
+  propagate our MLP. Let's create a data set which will contain 4 sets of inputs
+  for our neural network (=xs=):
+  #+begin_src jupyter-python :results none
+    xs = [
+        [2.0, 3.0, -1.0],
+        [3.0, -1.0, 0.5],
+        [0.5, 1.0, 1.0],
+        [1.0, 1.0, -1.0],
+    ]
+  #+end_src
+
+  Let's also define the 4 results we would like our neural network to output
+  given each set of inputs (=ys=):
+  #+begin_src jupyter-python :results none
+    ys = [1.0, -1.0, -1.0, 1.0] # desired targets
+  #+end_src
+
+  Let's then get a list of what our neural network currently outputs given these
+  inputs (=ypred=):
+  #+name: ypred
+  #+begin_src jupyter-python :exports both
+    ypred = [n(x) for x in xs]
+
+    print('ypred:', ypred)
+  #+end_src
+
+  Currently we are given the following with the neural network we generated
+  above (keep in mind that if we regenerate our neural network will be given
+  different weights and biases):
+  #+RESULTS: ypred
+  :results:
+  : ypred: [Value(data=-0.790206267391274), Value(data=-0.7310181701096696), Value(data=0.7341967057517118), Value(data=-0.7862416973918567)]
+  :end:
+
+  We can see that currently our outputs are bit off of our target outputs. To
+  get an idea of how far off we are we can calculate the [[https://developers.google.com/machine-learning/crash-course/descending-into-ml/training-and-loss][loss]] of our current
+  neural network:
+  #+name: loss
+  #+begin_src jupyter-python
+    # ygt = y ground truth
+    # yout = y outputs
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+    print('loss:', loss)
+  #+end_src
+
+  Currently our neural network has a loss of:
+  #+RESULTS: loss
+  :results:
+  : loss: Value(data=9.475287320359579)
+  :end:
+
+  Now that we have calculated our current loss we can back propagate our neural
+  network to get gradients for each of the nodes in our MLP:
+  #+begin_src jupyter-python :results none
+    loss.backward()
+  #+end_src
+
+  We can then graph our neural network to confirm that we have successfully back
+  propagated:
+  #+name: mlpgraph2
+  #+begin_src jupyter-python :exports both :file images/mlpgraph2.svg
+    draw_dot(loss)
+  #+end_src
+
+  At this point our graph is quite excessive as our graph now has been built up
+  by 4 forward passes of a neural network for everyone of the examples as well
+  as having a loss on top. Regardless here is the monstrosity itself:
+  #+RESULTS: mlpgraph2
+  :results:
+  [[file:images/mlpgraph2.svg]]
+  :end:
+
+  To tweak our neural network and get a smaller loss, which in turn means we are
+  closer to our desired targets, we can tweak each of our parameters (obtained
+  through our parameters functions) by their gradient value:
+  #+begin_src jupyter-python :results none
+    for p in n.parameters():
+        p.data += -0.01 * p.grad
+  #+end_src
+
+  After making these adjustments to our neural network it is important that we
+  recalculate our loss and back propagate our new gradient values:
+  #+name: loss2
+  #+begin_src jupyter-python :exports both
+    ypred = [n(x) for x in xs]
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+    print('loss:', loss)
+  #+end_src
+
+  We can see that we successfully brought down the total loss of our neural
+  network:
+  #+RESULTS: loss2
+  :results:
+  : loss: Value(data=9.19517988674704)
+  :end:
+
+  *Before we back propagate our new gradient values it is very important to zero
+  out our gradients!* Let's do that now:
+  #+begin_src jupyter-python :results none
+    for p in n.parameters():
+        p.grad = 0.0
+  #+end_src
+
+  Now let's back propagate and graph our updated neural network:
+  #+name: mlpgraph3
+  #+begin_src jupyter-python :exports both :file images/mlpgraph3.svg
+    loss.backward()
+
+    draw_dot(loss)
+  #+end_src
+
+  #+RESULTS: mlpgraph3
+  :results:
+  [[file:images/mlpgraph3.svg]]
+  :end:
+
+  Now as fun as it would be to iterate over these steps over and over until we
+  reach our desired targets let's put this in a loop to automate the process:
+  #+name: autobackpropagation
+  #+begin_src jupyter-python :exports both
+    for k in range(100):
+        # forward pass
+        ypred = [n(x) for x in xs]
+        loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+        # backward pass
+        for p in n.parameters():
+            p.grad = 0.0
+        loss.backward()
+
+        # update
+        for p in n.parameters():
+            p.data += -0.04 * p.grad
+
+        print(k, loss.data)
+  #+end_src
+
+  We can see through this wall of text that our loss is slowly climbing down to
+  =0=!
+  #+RESULTS: autobackpropagation
+  :results:
+  #+begin_example
+    0 9.19517988674704
+    1 7.773463530852206
+    2 5.8842167358126884
+    3 5.020298342185576
+    4 4.590496457616259
+    5 4.193994949289619
+    6 3.775250373181591
+    7 3.2333463998173833
+    8 2.5403906690379645
+    9 1.790941839760718
+    10 1.1395868990120053
+    11 0.7248291673368925
+    12 0.4936976059194683
+    13 0.36088863649423847
+    14 0.2787105022050324
+    15 0.2242186017315146
+    16 0.18600126960400276
+    17 0.15798125680160827
+    18 0.13669797783809817
+    19 0.12006286471222684
+    20 0.1067519951232781
+    21 0.09589076193215451
+    22 0.08688083407247216
+    23 0.0793004951192548
+    24 0.07284478172665726
+    25 0.0672881897176877
+    26 0.06246068558300173
+    27 0.05823183666392655
+    28 0.054500048004671384
+    29 0.05118509926445999
+    30 0.04822286632940916
+    31 0.04556152094708154
+    32 0.043158750061278735
+    33 0.0409796912451553
+    34 0.03899537921748829
+    35 0.03718156255016868
+    36 0.03551779217373467
+    37 0.03398671194474159
+    38 0.032573501171639145
+    39 0.031265432645138994
+    40 0.03005151933827659
+    41 0.028922229806569093
+    42 0.027869257276245604
+    43 0.026885331028059598
+    44 0.025964061354066155
+    45 0.025099811353167946
+    46 0.02428759032557208
+    47 0.0235229646589145
+    48 0.02280198296416784
+    49 0.022121112885635896
+    50 0.021477187525876316
+    51 0.020867359829628104
+    52 0.0202890635876267
+    53 0.01973997997162472
+    54 0.019218008711051098
+    55 0.01872124318093486
+    56 0.01824794879866299
+    57 0.01779654423049363
+    58 0.01736558499262937
+    59 0.016953749100054552
+    60 0.01655982447235644
+    61 0.0161826978518223
+    62 0.015821345027146935
+    63 0.015474822187622177
+    64 0.015142258258921262
+    65 0.014822848093501498
+    66 0.014515846407011458
+    67 0.01422056236752239
+    68 0.013936354757423889
+    69 0.013662627638835953
+    70 0.013398826462735358
+    71 0.013144434569945657
+    72 0.01289897003892609
+    73 0.012661982841099078
+    74 0.012433052269437594
+    75 0.012211784610314
+    76 0.01199781103230576
+    77 0.011790785668840708
+    78 0.01159038387432952
+    79 0.011396300635828506
+    80 0.011208249124362326
+    81 0.011025959371853147
+    82 0.010849177061191003
+    83 0.01067766241836793
+    84 0.010511189196818106
+    85 0.010349543745172973
+    86 0.010192524150585483
+    87 0.010039939450603242
+    88 0.009891608907305895
+    89 0.009747361338068207
+    90 0.009607034497885194
+    91 0.009470474508704136
+    92 0.009337535331661708
+    93 0.009208078278525475
+    94 0.009081971559000902
+    95 0.008959089860880861
+    96 0.008839313960305857
+    97 0.00872253035965517
+    98 0.00860863095082125
+    99 0.008497512701824767
+  #+end_example
+  :end:
+
+  Finally let's see how close we got to our desired outputs and let's redraw our
+  graph:
+  #+name: mlpgraph4
+  #+begin_src jupyter-python :exports both :file images/mlpgraph4.svg
+    print('ypred:', ypred)
+
+    draw_dot(loss)
+  #+end_src
+
+  #+RESULTS: mlpgraph4
+  :results:
+  : ypred: [Value(data=0.9582729922372971), Value(data=-0.9642926596870034), Value(data=-0.9379221913278412), Value(data=0.9596552228506491)]
+  [[file:images/mlpgraph4.svg]]
   :end:
 
 # Local Variables:

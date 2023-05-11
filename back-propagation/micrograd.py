@@ -219,3 +219,61 @@ n = MLP(3, [4, 4, 1])
 n(x)
 
 draw_dot(n(x))
+
+xs = [
+    [2.0, 3.0, -1.0],
+    [3.0, -1.0, 0.5],
+    [0.5, 1.0, 1.0],
+    [1.0, 1.0, -1.0],
+]
+
+ys = [1.0, -1.0, -1.0, 1.0] # desired targets
+
+ypred = [n(x) for x in xs]
+
+print('ypred:', ypred)
+
+# ygt = y ground truth
+# yout = y outputs
+loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+print('loss:', loss)
+
+loss.backward()
+
+draw_dot(loss)
+
+for p in n.parameters():
+    p.data += -0.01 * p.grad
+
+ypred = [n(x) for x in xs]
+loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+print('loss:', loss)
+
+for p in n.parameters():
+    p.grad = 0.0
+
+loss.backward()
+
+draw_dot(loss)
+
+for k in range(100):
+    # forward pass
+    ypred = [n(x) for x in xs]
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+    # backward pass
+    for p in n.parameters():
+        p.grad = 0.0
+    loss.backward()
+
+    # update
+    for p in n.parameters():
+        p.data += -0.04 * p.grad
+
+    print(k, loss.data)
+
+print('ypred:', ypred)
+
+draw_dot(loss)
