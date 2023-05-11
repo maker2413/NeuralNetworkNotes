@@ -1,0 +1,220 @@
+#+TITLE: Gradient Descent
+#+PROPERTY: header-args:jupyter-python :session gradients
+#+PROPERTY: header-args:jupyter-python+ :async yes
+#+PROPERTY: header-args:jupyter-python+ :exports both
+#+PROPERTY: header-args:jupyter-python+ :results raw drawer
+#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+#+PROPERTY: comments: yes
+
+#+begin_src jupyter-python :results none :tangle gradients.py :exports none
+  # This file was generated from the code blocks in ./README.org.
+#+end_src
+
+To begin learning how gradient descent works like start by importing some
+simple python libraries:
+#+begin_src jupyter-python :results none :tangle gradients.py
+  import math
+  import numpy as np
+  import matplotlib.pyplot as plt
+#+end_src
+
+Then let's define a scaler value function ~f~ of ~x~ that runs a simple
+equation on a given value and returns it:
+#+name: fofx
+#+begin_src jupyter-python :tangle gradients.py
+  def f(x):
+      return 3*x**2 - 4*x + 5
+
+  f(3.0)
+#+end_src
+
+We can see that if we give our function a simple input of =3.0= we get back
+=20.0=.
+
+#+RESULTS: fofx
+:results:
+: 20.0
+:end:
+
+Now let's plot out this function so that we can see it's shape:
+#+name: xs
+#+begin_src jupyter-python :tangle gradients.py
+  xs = np.arange(-5, 5, 0.25)
+  xs
+#+end_src
+
+We can see that x's is just an array of numbers from =-5= to =5= in steps of
+=0.25=:
+#+RESULTS: xs
+:results:
+: array([-5.  , -4.75, -4.5 , -4.25, -4.  , -3.75, -3.5 , -3.25, -3.  ,
+:        -2.75, -2.5 , -2.25, -2.  , -1.75, -1.5 , -1.25, -1.  , -0.75,
+:        -0.5 , -0.25,  0.  ,  0.25,  0.5 ,  0.75,  1.  ,  1.25,  1.5 ,
+:         1.75,  2.  ,  2.25,  2.5 ,  2.75,  3.  ,  3.25,  3.5 ,  3.75,
+:         4.  ,  4.25,  4.5 ,  4.75])
+:end:
+
+We can then get a set of y's by calling ~f~ on our =xs=:
+#+name: ys
+#+begin_src jupyter-python :tangle gradients.py
+  ys = f(xs)
+  ys
+#+end_src
+
+#+RESULTS: ys
+:results:
+: array([100.    ,  91.6875,  83.75  ,  76.1875,  69.    ,  62.1875,
+:         55.75  ,  49.6875,  44.    ,  38.6875,  33.75  ,  29.1875,
+:         25.    ,  21.1875,  17.75  ,  14.6875,  12.    ,   9.6875,
+:          7.75  ,   6.1875,   5.    ,   4.1875,   3.75  ,   3.6875,
+:          4.    ,   4.6875,   5.75  ,   7.1875,   9.    ,  11.1875,
+:         13.75  ,  16.6875,  20.    ,  23.6875,  27.75  ,  32.1875,
+:         37.    ,  42.1875,  47.75  ,  53.6875])
+:end:
+
+We can then plot our =xs= and =ys=:
+#+name: xyplot
+#+begin_src jupyter-python :tangle gradients.py
+  plt.plot(xs, ys)
+#+end_src
+
+#+RESULTS: xyplot
+:results:
+| <matplotlib.lines.Line2D | at | 0x7f75920b7190> |
+#+attr_org: :width 780
+[[file:./.ob-jupyter/d9aa49e74c5951f40d69299e0a7d047c624fa748.png]]
+:end:
+
+From here what we can think through and test is what would be the derivative
+of this parabola at any given point =x=. Instead of deriving a derivative like
+we would by hand in a Calculus class as the math equation for a modern neural
+network would be tens of thousand of expressions long. In our simple example
+here though of a parabola we can look at the [[https://en.wikipedia.org/wiki/Derivative#Definition][definition of derivative]] and look
+at a couple of test cases:
+#+name: xincrease
+#+begin_src jupyter-python :tangle gradients.py
+  h = 0.0001
+  x = 3.0
+  f(x + h)
+#+end_src
+
+We can see that if we slightly increase our =x= around point =3= our result is
+slightly bigger as well, which lines up with our above graph:
+#+RESULTS: xincrease
+:results:
+: 20.001400030000006
+:end:
+
+If we then run this through our derivative calculation:
+#+name: derivative
+#+begin_src jupyter-python :tangle gradients.py
+  (f(x + h) - f(x))/h
+#+end_src
+
+We can get an approximation of our slope at this point. Decreasing the value
+of =h= closer and closer to =0= would give us a more and more accurate
+approximation.
+#+RESULTS: derivative
+:results:
+: 14.000300000063248
+:end:
+
+Now let's look at a more complex case:
+#+begin_src jupyter-python :tangle gradients.py
+  a = 2.0
+  b = -3.0
+  c = 10.0
+  d = a*b + c
+  print(d)
+#+end_src
+
+#+RESULTS:
+:results:
+: 4.0
+:end:
+
+Now let's look at the derivatives of =d= with respect to =a=, =b=, and =c=:
+#+name: slope
+#+begin_src jupyter-python :tangle gradients.py
+  h = 0.0001
+
+  # inputs
+  a = 2.0
+  b = -3.0
+  c = 10.0
+
+  d1 = a*b + c
+  a += h
+  d2 = a*b + c
+
+  print('d1:', d1)
+  print('d2:', d2)
+  print('slope:', (d2 - d1)/h)
+#+end_src
+
+We can see that increasing =a= causes the output of =d= to decrease. We can
+also see that the slope is equal to =b=:
+#+RESULTS: slope
+:results:
+: d1: 4.0
+: d2: 3.999699999999999
+: slope: -3.000000000010772
+:end:
+
+With that in mind let's look what happens when we increase the value of =b=:
+#+name: slope2
+#+begin_src jupyter-python :tangle gradients.py
+  h = 0.0001
+
+  # inputs
+  a = 2.0
+  b = -3.0
+  c = 10.0
+
+  d1 = a*b + c
+  b += h
+  d2 = a*b + c
+
+  print('d1:', d1)
+  print('d2:', d2)
+  print('slope:', (d2 - d1)/h)
+#+end_src
+
+We can see in this case that increasing =b= increases the output of =d=. Also
+this time our slope is equal to the value of =a=:
+#+RESULTS: slope2
+:results:
+: d1: 4.0
+: d2: 4.0002
+: slope: 2.0000000000042206
+:end:
+
+Finally we can look at what happens when we increase =c=:
+#+name: slope3
+#+begin_src jupyter-python :tangle gradients.py
+  h = 0.0001
+
+  # inputs
+  a = 2.0
+  b = -3.0
+  c = 10.0
+
+  d1 = a*b + c
+  c += h
+  d2 = a*b + c
+
+  print('d1:', d1)
+  print('d2:', d2)
+  print('slope:', (d2 - d1)/h)
+#+end_src
+
+We can see that increasing =c= increases the output of =d= and our slope in
+this case is equal to =1=. This is because increasing =c= directly effects the
+outcome of =d= because it is not being multiplied by another value like =a=
+and =b= were:
+#+RESULTS: slope3
+:results:
+: d1: 4.0
+: d2: 4.0001
+: slope: 0.9999999999976694
+:end:
