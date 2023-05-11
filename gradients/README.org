@@ -333,7 +333,8 @@ whole problem.
   but essentially we are just defining a class that we can call when we want to
   create values of data. The double underscore functions essentially just allow
   us to override and define how operators work with our =Value= class. The
-  ~__init__~ function allows us to define what happens when a value is created.
+  ~__init__~ function allows us to define what happens when a value is
+  created. To see a more in depth list of this "dunder" methods refer to: [[https://blog.finxter.com/python-list-of-dunder-methods/][this]].
 
   Now let's create some variables using our new =Value= class:
   #+begin_src jupyter-python :results none

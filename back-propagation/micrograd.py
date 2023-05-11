@@ -153,3 +153,69 @@ class Value:
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()
+
+import random
+
+class Neuron:
+    # nin = Number of inputs
+    def __init__(self, nin):
+        self.w = [Value(random.uniform(-1,1)) for _ in range(nin)]
+        self.b = Value(random.uniform(-1,1))
+
+    def __call__(self, x):
+        # w * x + b
+        # The zip function here will pair up our w's with our x's
+        act = sum((wi*xi for wi, xi in zip(self.w, x)), self.b)
+        out = act.tanh()
+        return out
+
+    def parameters(self):
+        return self.w + [self.b]
+
+x = [2.0, 3.0]
+n = Neuron(2)
+
+n(x)
+
+# Let's create a layer of Neurons
+class Layer:
+    # nout = Number of output Neurons
+    def __init__(self, nin, nout):
+        self.neurons = [Neuron(nin) for _ in range(nout)]
+
+    def __call__(self, x):
+        # outs = Number of neurons in this layer
+        outs = [n(x) for n in self.neurons]
+        return outs[0] if len(outs) == 1 else outs
+
+    def parameters(self):
+        return [p for neuron in self.neurons for p in neuron.parameters()]
+
+x = [2.0, 3.0]
+# A layer with 2 inputs and 3 outputs
+n = Layer(2, 3)
+
+n(x)
+
+# Let's create an MLP (Multi Layer Perceptron)
+class MLP:
+    # nouts = list of nout
+    def __init__(self, nin, nouts):
+        sz = [nin] + nouts
+        self.layers = [Layer(sz[i], sz[i+1]) for i in range(len(nouts))]
+
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+    def parameters(self):
+        return [p for layer in self.layers for p in layer.parameters()]
+
+x = [2.0, 3.0, -1.0]
+# 3 inputs into 2 layers of 4 and 1 output
+n = MLP(3, [4, 4, 1])
+
+n(x)
+
+draw_dot(n(x))
