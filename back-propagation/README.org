@@ -599,7 +599,13 @@ PyTorch.
 
   To tweak our neural network and get a smaller loss, which in turn means we are
   closer to our desired targets, we can tweak each of our parameters (obtained
-  through our parameters functions) by their gradient value:
+  through our parameters functions) by their gradient value. In this case we
+  will tweak our data by a very small amount of =0.01 * gradient=. The reason
+  for this is if we adjust our data by too much at one time we could get a
+  rubber banding effect were our loss bounces back and forth between increasing
+  and decreasing in value. It is also worth noting that our current neural
+  network only has about =41= parameters, which is quite small. Some modern day
+  neural networks could billions or even trillions of parameters:
   #+begin_src jupyter-python :results none
     for p in n.parameters():
         p.data += -0.01 * p.grad
@@ -643,7 +649,14 @@ PyTorch.
   :end:
 
   Now as fun as it would be to iterate over these steps over and over until we
-  reach our desired targets let's put this in a loop to automate the process:
+  reach our desired targets let's put this in a loop to automate the
+  process. Like we talked about before tweaking the data of our parameters too
+  much at one time can cause a rubber banding effect, but tweaking our data too
+  little can cause our training to progress very slowly. For this example we
+  will just try tweaking our data by =0.04 * gradient= on each
+  parameter. Generally if we were to be training a neural network it would be
+  most efficient to start by tweaking with a larger value and decrease our
+  value as we iterate with training:
   #+name: autobackpropagation
   #+begin_src jupyter-python :exports both
     for k in range(100):
@@ -785,6 +798,14 @@ PyTorch.
   : ypred: [Value(data=0.9582729922372971), Value(data=-0.9642926596870034), Value(data=-0.9379221913278412), Value(data=0.9596552228506491)]
   [[file:images/mlpgraph4.svg]]
   :end:
+
+  This actually summarizes the idea behind back propagation and training a
+  neural network. This also work at this point is also basically a rewrite of
+  [[https://github.com/karpathy/micrograd][micrograd]], which in itself is a tiny rewrite of the core concepts of
+  =PyTorch=.
+
+  The next section of this repo will cover [[../bigram-language-model][bigram language models]] and will
+  actually start to build out a usable neural network.
 
 # Local Variables:
 # org-image-actual-width: (1024)
