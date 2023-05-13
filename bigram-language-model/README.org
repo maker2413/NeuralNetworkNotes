@@ -6,20 +6,219 @@
 #+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
 
 This directory contains work from [[https://www.youtube.com/watch?v=PaCmpygFfXo&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ&index=2][part 2]] of Neural Networks: Zero to Hero by
-Andrej Karpathy. This directory goes through rebuilding [[https://github.com/karpathy/makemore][makemore]].
+Andrej Karpathy. This directory goes through rebuilding bigram functionality of
+[[https://github.com/karpathy/makemore][makemore]].
 
-The included `names.txt` dataset, as an example, has the most common 32K names
-takes from [ssa.gov](https://www.ssa.gov/oact/babynames/) for the year 2018. It
-looks like:
+#+begin_src jupyter-python :results none :exports none
+  # This file was generated from the code blocks in ./README.org.
+#+end_src
+
+The included `names.txt` dataset, as an example, has the most common 32,000
+names taken from [[https://www.ssa.gov/oact/babynames/][ssa.gov]] for the year 2018. It looks like:
 #+begin_example
-emma
-olivia
-ava
-isabella
-sophia
-charlotte
-...
+  emma
+  olivia
+  ava
+  isabella
+  sophia
+  charlotte
+  ...
 #+end_example
+
+We will begin by importing ~PyTorch~ and ~matplotlib~:
+#+begin_src jupyter-python :results none
+  import torch
+  import matplotlib.pyplot as plt
+#+end_src
+
+Then we can begin by opening our =names.txt= file and storing all of the names
+in a variable:
+#+begin_src jupyter-python :exports both
+  words = open('names.txt', 'r').read().splitlines()
+#+end_src
+
+Now we can see the first ten words by:
+#+name: names
+#+begin_src jupyter-python :exports both :tangle no
+  words[:10]
+#+end_src
+
+#+RESULTS: names
+:results:
+| emma | olivia | ava | isabella | sophia | charlotte | mia | amelia | harper | evelyn |
+:end:
+
+We can also view the total words, the maximum length word, and the shortest
+length word:
+#+begin_src jupyter-python :exports both :tangle no
+  len(words)
+#+end_src
+
+#+RESULTS:
+:results:
+: 32033
+:end:
+
+#+begin_src jupyter-python :exports both :tangle no
+  min(len(w) for w in words)
+#+end_src
+
+#+RESULTS:
+:results:
+: 2
+:end:
+
+#+begin_src jupyter-python :exports both :tangle no
+  max(len(w) for w in words)
+#+end_src
+
+#+RESULTS:
+:results:
+: 15
+:end:
+
+A bigram language model is only looking at the characters in dataset in
+pairs. This means that if we give our bigram language model the letter =a= it
+will give us a character that most likely follows =a= based on what it knows. To
+begin building out our bigram language model we are going to need a dictionary
+where we can keep track of the character pairs present in our dataset:
+#+begin_src jupyter-python :results none :tangle no
+  # b will be our bigram dictionary
+  b = {}
+#+end_src
+
+Now we can iterate over all of the words in our dataset and build out our
+dictionary. We are also going to add two imaginary characters that we will use
+to dictate the beginning and end of a word for simplicity let's only look at
+the first 3 words in our dataset for now:
+#+name: firstthree
+#+begin_src jupyter-python :tangle no :exports both
+  for w in words[:3]:
+      # And let's add an imaginary start and end character to each of our words
+      chs = ['<S>'] + list(w) + ['<E>']
+      # Then we will iterate over each 2 character chunks of each word
+      for ch1, ch2 in zip(chs, chs[1:]):
+          bigram = (ch1, ch2)
+          # And add a count of each occurance of a 2 character pair to our
+          # dictionary
+          b[bigram] = b.get(bigram, 0) + 1
+          print(ch1, ch2)
+#+end_src
+
+We can see the starting and ending characters that we added being printed as
+pairs:
+#+RESULTS: firstthree
+:results:
+#+begin_example
+  <S> e
+  e m
+  m m
+  m a
+  a <E>
+  <S> o
+  o l
+  l i
+  i v
+  v i
+  i a
+  a <E>
+  <S> a
+  a v
+  v a
+  a <E>
+#+end_example
+:end:
+
+From here we could sort our dictionary and look at the data we collected,
+however the output is a bit too big for me to want to include it in this
+document:
+#+begin_src jupyter-python :tangle no :results none
+  sorted(b.items(), key = lambda kv: -kv[1])
+#+end_src
+
+Since in the last section we built out code that basically emulated the core
+design of =PyTorch= from here on we are simply going to leverage PyTorch to do
+the heaving lifting for us. To begin with let's create a two dimensional array
+of zeros. PyTorch has a function for this use case called [[https://pytorch.org/docs/stable/generated/torch.zeros.html][zeros]]. For instance we
+could create a =3= by =5= array of zeros like this:
+#+begin_src jupyter-python :tangle no :exports both
+  a = torch.zeros((3, 5))
+
+  a
+#+end_src
+
+#+RESULTS:
+:results:
+: tensor([[0., 0., 0., 0., 0.],
+:         [0., 0., 0., 0., 0.],
+:         [0., 0., 0., 0., 0.]])
+:end:
+
+By default PyTorch uses a float32 data type for most of it's libraries and we
+can see that by doing:
+#+name: dtype
+#+begin_src jupyter-python :tangle no :exports both
+  a.dtype
+#+end_src
+
+#+RESULTS: dtype
+:results:
+: torch.float32
+:end:
+
+If a different datatype is required for you use case you can provide that as an
+option to the zeros function. In our use case we have a =26= character alphabet
+with two imaginary characters added in to dictate the beginning and end of each
+word, however going forward we could just use one imaginary character to dictate
+the beginning and end of the words in our dataset. So to keep a tally of each
+character pair we would require a =27= by =27= array. We are also going to
+specify a datatype of =int32= for our array:
+#+begin_src jupyter-python :results none
+  N = torch.zeros((27, 27), dtype=torch.int32)
+#+end_src
+
+Before we put data into our array we have to build a lookup table that can
+convert characters into integers. To do this let's first grab each unique
+character from our dataset and store a sorted list into a =chars= variable:
+#+begin_src jupyter-python :results none
+  chars = sorted(list(set(''.join(words))))
+#+end_src
+
+Now we can build a lookup table that will convert characters to integers. We
+will call this ~itos~:
+#+begin_src jupyter-python :results none
+  stoi = {s:i+1 for i,s in enumerate(chars)}
+#+end_src
+
+Then we can define our custom character that will denote the beginning and end
+of the words in our dataset and test the functionality of our lookup table:
+#+name: stoi
+#+begin_src jupyter-python :exports both
+  stoi['.'] = 0
+
+  stoi['e']
+#+end_src
+
+We can see that given =e= we get =5= as an output:
+#+RESULTS: stoi
+:results:
+: 5
+:end:
+
+Let's also build out an inverse lookup table ie: converts integers back to
+characters. We will call this one ~itos~, and we can test it's functionality:
+#+name: itos
+#+begin_src jupyter-python :exports both
+  itos = {i:s for s,i in stoi.items()}
+
+  itos[5]
+#+end_src
+
+We can see that given =5= ~itos~ returns =e=:
+#+RESULTS: itos
+:results:
+: e
+:end:
 
 # Local Variables:
 # org-image-actual-width: (1024)
