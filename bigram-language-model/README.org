@@ -13,7 +13,7 @@ Andrej Karpathy. This directory goes through rebuilding bigram functionality of
   # This file was generated from the code blocks in ./README.org.
 #+end_src
 
-The included `names.txt` dataset, as an example, has the most common 32,000
+The included =names.txt= dataset, as an example, has the most common 32,000
 names taken from [[https://www.ssa.gov/oact/babynames/][ssa.gov]] for the year 2018. It looks like:
 #+begin_example
   emma
@@ -24,6 +24,9 @@ names taken from [[https://www.ssa.gov/oact/babynames/][ssa.gov]] for the year 2
   charlotte
   ...
 #+end_example
+
+The goal of this project is generate unique names that are present in
+=names.txt= using a bigram language model that was trained on =names.txt=.
 
 We will begin by importing ~PyTorch~ and ~matplotlib~:
 #+begin_src jupyter-python :results none
@@ -238,6 +241,8 @@ arguably quite ugly so we are going to use matplotlib to create a table that
 better represents the data in N:
 #+name: probabilites
 #+begin_src jupyter-python :file images/probabilities.png :exports both
+  # This block of code will print ever character pair and the number of times it
+  # occurs. It will also shade each tile dark the more a pair appears.
   plt.figure(figsize=(16,16))
   plt.imshow(N, cmap='Blues')
   for i in range(27):
@@ -253,6 +258,538 @@ better represents the data in N:
 | -0.5 | 26.5 | 26.5 | -0.5 |
 [[file:images/probabilities.png]]
 :end:
+
+Now we can use ~N~ to build a probability for each character pair. To prove
+this let's look at the first row of ~N~:
+#+begin_src jupyter-python :exports both
+  p = N[0].float()
+  p = p / p.sum()
+
+  p
+#+end_src
+
+#+RESULTS:
+:results:
+: tensor([0.0000, 0.1377, 0.0408, 0.0481, 0.0528, 0.0478, 0.0130, 0.0209, 0.0273,
+:         0.0184, 0.0756, 0.0925, 0.0491, 0.0792, 0.0358, 0.0123, 0.0161, 0.0029,
+:         0.0512, 0.0642, 0.0408, 0.0024, 0.0117, 0.0096, 0.0042, 0.0167, 0.0290])
+:end:
+
+And now that we have built out probabilities for the first row the sum of ~p~
+should equal to =1= to prove that we have a proper probability distribution:
+#+begin_src jupyter-python :tangle no :exports both
+  p.sum()
+#+end_src
+
+#+RESULTS:
+:results:
+: tensor(1.)
+:end:
+
+Now we can sample from this distribution. To sample from this distribution we
+are going to [[https://pytorch.org/docs/stable/generated/torch.multinomial.html][torch.multinomial]]. Torch's multinomial function allows us to sample
+integers taking into account our probability distribution. We are going to want
+to take note of the replacement field when we are creating our multinomial as
+this allows us to put a value back into the list of usable indices to draw
+again. We are also going to be using a [[https://pytorch.org/docs/stable/generated/torch.Generator.html][generator]] object with a set seed so that
+we can get the same results over and over during development:
+#+name: sampling
+#+begin_src jupyter-python 
+  g = torch.Generator().manual_seed(2147483647)
+  ix = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
+
+  itos[ix]
+#+end_src
+
+We can see that every time we evaluate the above code block we are given =j= as
+a result. This is because we set a ~manual_seed~ on our generator:
+#+RESULTS: sampling
+:results:
+: j
+:end:
+
+Now that we have proved that we can pull characters out we can then loop through
+our array to pull out a series of characters. To do this let's reinitialize our
+generator so that we can get the same results every we run our loop. We will
+then have a ~while~ loop that gets the probability for each row as we loop
+through using ~ix~ and then draws a sample from the row using the probability:
+#+name: sampling2
+#+begin_src jupyter-python :tangle no :exports both
+  g = torch.Generator().manual_seed(2147483647)
+
+  out = []
+  ix = 0
+  while True:
+      p = N[ix].float()
+      p = p / p.sum()
+      ix = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
+      out.append(itos[ix])
+      if ix == 0:
+          break
+
+  print(''.join(out))
+#+end_src
+
+And the first name we get is ~junide~:
+#+RESULTS: sampling2
+:results:
+: junide.
+:end:
+
+Yes, that name sort of sucks, but that is due to fault in our code that is more
+to do with that the fact that bigram language models sort of just suck as they
+have no context of language outside of what character they currently have and
+what character may come next. We can prove that this is actually doing something
+though as we if we tweak our ~while~ loop to always assign uniform probabilities
+to everything we can see that we will get worse results:
+#+name: sampling3
+#+begin_src jupyter-python :tangle no :exports both
+  g = torch.Generator().manual_seed(2147483647)
+
+  out = []
+  ix = 0
+  # Same while loop as before with probabilities all flatten
+  while True:
+      p = torch.ones(27) / 27.0
+      ix = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
+      out.append(itos[ix])
+      if ix == 0:
+          break
+
+  print(''.join(out))
+#+end_src
+
+I don't know about you, but I think ~juwjdvdipkcqaz~ is a much worse name than
+~junide~:
+#+RESULTS: sampling3
+:results:
+: juwjdvdipkcqaz.
+:end:
+
+So now that we have proved we are actually generating names, albeit not great
+ones. We can make our loop a little more efficient by making a matrix for our
+probabilities. To do this if we look at the documentation for [[https://pytorch.org/docs/stable/generated/torch.sum.html][torch.sum]] we can
+see that there is optional fields called ~dim~ and ~keepdim~. These fields
+allow us to specify which dimension we want to return sums for (by default all
+dimensions are summed together) and ~keepdim~ allows us to tell ~sum~ to return
+the same dimension structure. Before we build out our probability matrix let's
+look into this a little deeper as this can be a complicated topic:
+#+name: pshape
+#+begin_src jupyter-python :tangle no :exports both
+  P = N.float()
+  P.shape
+#+end_src
+
+So we can see that currently =P= is a =27= by =27= matrix:
+#+RESULTS: pshape
+:results:
+: torch.Size([27, 27])
+:end:
+
+If we however ~sum~ =P= on it's zeroth dimension with ~keepdim~ set to =True=:
+#+name: pshape2
+#+begin_src jupyter-python :tangle no :exports both
+  P.sum(0, keepdim=True).shape
+#+end_src
+
+We can see that we now have a =1= by =27= matrix. This means that we have now
+summed all the values in each column:
+#+RESULTS: pshape2
+:results:
+: torch.Size([1, 27])
+:end:
+
+If we run the same command, but remove ~keepdim~:
+#+name: pshape3
+#+begin_src jupyter-python :tangle no :exports both
+  P.sum(0).shape
+#+end_src
+
+We can now see that the first dimension gets squeezed out by the sum function
+and we are just left with a size =27= matrix with the sums of our columns:
+#+RESULTS: pshape3
+:results:
+: torch.Size([27])
+:end:
+
+Now we don't actually want a sum of our columns we want a sum of our rows so we
+are going to sum on dimension =1= with ~keepdim~ set to =True= so that we get a
+=27= by =1= matrix:
+#+name: pshape4
+#+begin_src jupyter-python :tangle no :exports both
+  P.sum(1, keepdim=True).shape
+#+end_src
+
+This will give us a =27= by =1= array and the reason we want this specifically
+is because we are going to be dividing =P= by our ~sum~ of =P= and to do this we
+need to abide by PyTorch's [[https://pytorch.org/docs/stable/notes/broadcasting.html][broadcasting]] rules. If we do not abide by these rules
+we can not perform matrix math on our two matrices:
+#+RESULTS: pshape4
+:results:
+: torch.Size([27, 1])
+:end:
+
+Broadcasting rules can be a complicated topic when doing matrix math, but in
+general the rules are as follows:
+- Each tensor has at least one dimension.
+- When iterating over the dimension sizes, starting at the trailing dimension,
+  the dimension sizes must either be equal, one of them is 1, or one of them
+  does not exist.
+
+In our case we can check to see that our two matrices: =P= and
+~P.sum(1, keepdim=True)~ can be divide by writing our the shape of our matrices
+and going from *right to left* check that each dimension abides by these rules:
+#+begin_src jupyter-python :tangle no :results none
+  # 27, 27
+  # 27, 1
+#+end_src
+
+So if we look at the above starting from the *right* we can see that although
+our dimensions are not equal one of them is a =1= so that dimension is
+clear. Moving on to the next dimension we can see that both of our dimensions
+are equal so this dimension is in the clear.
+
+Now according to the rules of broadcasting if we left off ~keepdim~ and tried
+the above we would still be able to divide our two matrices as the dimension on
+the right would not exist, which is the third use case of the second
+rule. Although this is true if we actually implemented it this way and checked
+to see if our probabilities matrix is normalized we would see that it is not:
+#+name: probabilitymatrixcheck
+#+begin_src jupyter-python :tangle no :exports both
+  P = N.float()
+  P = P / P.sum(1)
+
+  P[0].sum()
+#+end_src
+
+This happens because torch will actually sum consider our =27= matrix and sum it
+up as if it were a =1= by =27= matrix, which gives an unnormalized probability
+matrix:
+#+RESULTS: probabilitymatrixcheck
+:results:
+: tensor(7.0225)
+:end:
+
+This happens because it first compares the *right most dimensions first*, which
+in this case would =27= for our first matrix and =27= for our second matrix:
+#+begin_src jupyter-python :tangle no :results none
+  # 27, 27
+  #     27
+#+end_src
+
+It then compares the next dimensions which in this case is =27= and nothing so
+it will actually silently create a dimension to sum the =27= values to.
+
+With all of that out of the way let's build our probability matrix:
+#+begin_src jupyter-python :results none
+  P = N.float()
+  P = P / P.sum(1, keepdim=True)
+#+end_src
+
+We can now confirm that our probability matrix is normalized by check the sum of
+one of it's rows:
+#+name: probabilitymatrixcheck2
+#+begin_src jupyter-python :tangle no :exports both
+  P[0].sum()
+#+end_src
+
+We can see that the sum of this row is equal to =1=:
+#+RESULTS: probabilitymatrixcheck2
+:results:
+: tensor(1.)
+:end:
+
+#+begin_src jupyter-python :exports none :results none
+  print("Results without neural network:")
+#+end_src
+
+Now we can implement our probability matrix into our above loop and this
+time let's also create 10 names:
+#+name: sampling4
+#+begin_src jupyter-python :exports both
+  g = torch.Generator().manual_seed(2147483647)
+
+  for i in range(10):
+      out = []
+      ix = 0
+      # Same while loop as before with probabilities all flatten
+      while True:
+          p = P[ix]
+          ix = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
+          out.append(itos[ix])
+          if ix == 0:
+              break
+      print(''.join(out))
+#+end_src
+
+We can see that we got the same first result as well as 9 other new names:
+#+RESULTS: sampling4
+:results:
+: junide.
+: janasah.
+: p.
+: cony.
+: a.
+: nn.
+: kohin.
+: tolian.
+: juee.
+: ksahnaauranilevias.
+:end:
+
+We have now successfully "trained" a bigram language model that does produce
+results, albeit not great results. Now let's try to evaluate the quality of this
+model using loss like we did in the previous section. To begin doing this let's
+look at the probabilities we have assigned to every bigram in the first 3 words
+in our dataset:
+#+name: firstthreeprobs
+#+begin_src jupyter-python :tangle no :exports both
+  for w in words[:3]:
+      chs = ['.'] + list(w) + ['.']
+      for ch1, ch2 in zip(chs, chs[1:]):
+          ix1 = stoi[ch1]
+          ix2 = stoi[ch2]
+          prob = P[ix1, ix2]
+          print(f'{ch1}{ch2}: {prob:.4f}')
+#+end_src
+
+So here we can see the percentage that each of these bigrams has been assigned
+in the dataset:
+#+RESULTS: firstthreeprobs
+:results:
+#+begin_example
+  .e: 0.0478
+  em: 0.0377
+  mm: 0.0253
+  ma: 0.3899
+  a.: 0.1960
+  .o: 0.0123
+  ol: 0.0780
+  li: 0.1777
+  iv: 0.0152
+  vi: 0.3541
+  ia: 0.1381
+  a.: 0.1960
+  .a: 0.1377
+  av: 0.0246
+  va: 0.2495
+  a.: 0.1960
+#+end_example
+:end:
+
+If everything were to be equal likely, ie: ~1/27~ we would expect everything to
+be about ~3.8%~. So anything above ~3.8%~ means that we have learned something
+useful from these bigram statistics. So now we would like to think of way to
+summarize these probabilities into a single number for =loss= like we did in the
+previous section. If we take a look at the [[https://en.wikipedia.org/wiki/Maximum_likelihood_estimation][maximum likelihood exstimation]] we can
+see that what is typically used here is the "likelihood". The likelihood is the
+product of all our probabilities and it is really telling us the likelihood of
+the entire dataset assigned by the model we trained. In our case because the
+probabilities of all of these bigram pairs is some small number between =0= and
+=1= the product of all of these probabilities is going to be some very small
+number. In cases like this instead of working with the likelihood people often
+opt to work with the [[https://www.statlect.com/glossary/log-likelihood][log-likelihood]]. To get the log-likelihood we just have to
+take the log of the probability. We also want to track how many total character
+pairs there are so that later we can normalize our log-likelihood:
+#+name: firstthreeprobs2
+#+begin_src jupyter-python :tangle no :exports both
+  log_likelihood = 0.0
+  n = 0
+
+  for w in words[:3]:
+      chs = ['.'] + list(w) + ['.']
+      for ch1, ch2 in zip(chs, chs[1:]):
+          ix1 = stoi[ch1]
+          ix2 = stoi[ch2]
+          prob = P[ix1, ix2]
+          logprob = torch.log(prob)
+          log_likelihood += logprob
+          n += 1
+          print(f'{ch1}{ch2}: {prob:.4f} {logprob:.4f}')
+#+end_src
+
+So we can see that now when we have a character pair with a higher probability
+our ~logprob~ is closer to =0=, whereas if we have something with a low
+probability we have a more negative number:
+#+RESULTS: firstthreeprobs2
+:results:
+#+begin_example
+  .e: 0.0478 -3.0408
+  em: 0.0377 -3.2793
+  mm: 0.0253 -3.6772
+  ma: 0.3899 -0.9418
+  a.: 0.1960 -1.6299
+  .o: 0.0123 -4.3982
+  ol: 0.0780 -2.5508
+  li: 0.1777 -1.7278
+  iv: 0.0152 -4.1867
+  vi: 0.3541 -1.0383
+  ia: 0.1381 -1.9796
+  a.: 0.1960 -1.6299
+  .a: 0.1377 -1.9829
+  av: 0.0246 -3.7045
+  va: 0.2495 -1.3882
+  a.: 0.1960 -1.6299
+#+end_example
+:end:
+
+Now we can normalize our log-likelihood to get a "loss" value. We can also
+negate this value to get a positive number to work with:
+#+name: loss
+#+begin_src jupyter-python :tangle no
+  nll = -log_likelihood
+  print(f'{nll/n}')
+#+end_src
+
+Now we have a loss value for our current model like we did with the
+[[../back-propagation][back propagation]] section of this repository. Just like before the lower our
+loss is the the better our model is trained:
+#+RESULTS: loss
+:results:
+: 2.424102306365967
+:end:
+
+In summary our over goal is:
+- To maximize likelihood of the data w, r, t, model parameters (statistical
+  modeling)
+- This is equivalent to maximizing the log likelihood, because log is monotonic
+- Which is equivalent to minimizing the negative log likelihood
+- Which is also equivalent to minimizing the average negative log likelihood
+
+On a side note we can also actually use the above code block to check the
+likelihood of an specific name like this:
+#+name: nametest
+#+begin_src jupyter-python :tangle no :exports both
+  log_likelihood = 0.0
+  n = 0
+
+  for w in ["maker"]:
+      chs = ['.'] + list(w) + ['.']
+      for ch1, ch2 in zip(chs, chs[1:]):
+          ix1 = stoi[ch1]
+          ix2 = stoi[ch2]
+          prob = P[ix1, ix2]
+          logprob = torch.log(prob)
+          log_likelihood += logprob
+          n += 1
+
+  nll = -log_likelihood
+  print(f'{nll/n}')
+#+end_src
+
+So the likelihood of ~maker~ being generated is sort of uncommon:
+#+RESULTS: nametest
+:results:
+: 2.310086965560913
+:end:
+
+The reason I am brining this up is if we look at a more obscure name like
+~makq~:
+#+name: nametest2
+#+begin_src jupyter-python :tangle no :exports both
+  log_likelihood = 0.0
+  n = 0
+
+  for w in ["makq"]:
+      chs = ['.'] + list(w) + ['.']
+      for ch1, ch2 in zip(chs, chs[1:]):
+          ix1 = stoi[ch1]
+          ix2 = stoi[ch2]
+          prob = P[ix1, ix2]
+          logprob = torch.log(prob)
+          log_likelihood += logprob
+          n += 1
+
+  nll = -log_likelihood
+  print(f'{nll/n}')
+#+end_src
+
+We see that we get ~inf~ because ~kq~ never occurs in our dataset and therefore
+has a probability of =0= which turns into infinity when run through a log
+function:
+#+RESULTS: nametest2
+:results:
+: inf
+:end:
+
+To avoid this we can perform [[https://openreview.net/forum?id=H1VyHY9gg][data smoothing]] on our probabilities by adding some
+imaginary number to our probability matrix:
+#+begin_src jupyter-python :results none
+  P = (N+1).float()
+  P = P / P.sum(1, keepdim=True)
+#+end_src
+
+This will ensure that we have no =0='s to our probability matrix and will
+realistic not change our results that much as every pair is getting an addition
+of =1= to it's original value.
+
+So now with all of that out of the way, instead of building a loss value for the
+first three words let's build a loss for the entire dataset:
+#+name: loss2
+#+begin_src jupyter-python :exports both
+  log_likelihood = 0.0
+  n = 0
+
+  for w in words:
+      chs = ['.'] + list(w) + ['.']
+      for ch1, ch2 in zip(chs, chs[1:]):
+          ix1 = stoi[ch1]
+          ix2 = stoi[ch2]
+          prob = P[ix1, ix2]
+          logprob = torch.log(prob)
+          log_likelihood += logprob
+          n += 1
+
+  nll = -log_likelihood
+  loss = nll/n
+  print("Current loss:", loss)
+#+end_src
+
+So we can see that we currently have a loss of about =2.4544=:
+#+RESULTS: loss2
+:results:
+: Current loss: tensor(2.4544)
+:end:
+
+So now we have successfully built a bigram language model. For the next part of
+this let's build out a neural network bigram language model, which truth be told
+by the end of this will probably produce very similar results as our current
+bigram language model due to the limiting power of a bigram language model.
+
+To begin this effort let's create a training set of bigrams. For now let's just
+take the first word in our dataset (=emma=):
+#+begin_src jupyter-python :results none
+  xs, ys = [], []
+
+  for w in words[:1]:
+      chs = ['.'] + list(w) + ['.']
+      for ch1, ch2 in zip(chs, chs[1:]):
+          ix1 = stoi[ch1]
+          ix2 = stoi[ch2]
+          xs.append(ix1)
+          ys.append(ix2)
+#+end_src
+
+Now we will create a ~tensor~ for our =x='s and our =y='s. This is also a great
+time to point out that [[https://pytorch.org/docs/stable/generated/torch.tensor.html#torch.tensor][tensor]] and [[https://pytorch.org/docs/stable/tensors.html#torch.Tensor][Tensor]] or very different things in
+PyTorch. The difference between these two objects can be a little fuzzy to
+understand but this: [[https://stackoverflow.com/a/63116398][stack overflow post]] describes it better than the PyTorch
+documentation. The short answer is that ~tensor~ uses a datatype of =int64=
+while ~Tensor~ uses a datatype of =float32=.
+#+name: xsys
+#+begin_src jupyter-python :tangle no :exports both
+  print(xs)
+  print(ys)
+#+end_src
+
+Here we can see what is in ~xs~ and ~ys~:
+#+RESULTS: xsys
+:results:
+: [0, 5, 13, 13, 1]
+: [5, 13, 13, 1, 0]
+:end:
+
+
 
 # Local Variables:
 # org-image-actual-width: (1024)
