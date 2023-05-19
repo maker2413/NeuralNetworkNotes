@@ -748,7 +748,7 @@ first three words let's build a loss for the entire dataset:
 So we can see that we currently have a loss of about =2.4544=:
 #+RESULTS: loss2
 :results:
-: Current loss: tensor(2.4544)
+: Current loss: tensor(2.4541)
 :end:
 
 So now we have successfully built a bigram language model. For the next part of
@@ -778,6 +778,9 @@ documentation. The short answer is that ~tensor~ uses a datatype of =int64=
 while ~Tensor~ uses a datatype of =float32=.
 #+name: xsys
 #+begin_src jupyter-python :tangle no :exports both
+  xs = torch.tensor(xs)
+  ys = torch.tensor(ys)
+
   print(xs)
   print(ys)
 #+end_src
@@ -785,11 +788,20 @@ while ~Tensor~ uses a datatype of =float32=.
 Here we can see what is in ~xs~ and ~ys~:
 #+RESULTS: xsys
 :results:
-: [0, 5, 13, 13, 1]
-: [5, 13, 13, 1, 0]
+: tensor([ 0,  5, 13, 13,  1])
+: tensor([ 5, 13, 13,  1,  0])
 :end:
 
-
+In the previous section of this repository we built out a neural network were we
+had input integers and sent them through neurons with weights and values to get
+our output nodes. This time we wouldn't want to just pass in the integers we
+have into input nodes as these numbers represent an index to a character
+array and feeding in an index number that represents a character and running
+math operations on it would not have our intended results. Instead we want to
+encode our values and one common way is to use [[https://pytorch.org/docs/stable/generated/torch.nn.functional.one_hot.html][one hot]] encoding. In one hot
+encoding we take an integer like =13= and it creates a vector that is all zeros
+except for the 13th dimension which turns to =1= and then that vector can be fed
+into a neural net.
 
 # Local Variables:
 # org-image-actual-width: (1024)
