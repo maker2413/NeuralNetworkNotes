@@ -29,6 +29,13 @@ charlotte
 ...
 #+end_example
 
+We will begin by importing ~PyTorch~ and ~matplotlib~:
+#+begin_src jupyter-python :results none
+  import torch
+  import torch.nn.functional as F
+  import matplotlib.pyplot as plt # for making figures
+#+end_src
+
 # Local Variables:
 # org-image-actual-width: (1024)
 # End:
