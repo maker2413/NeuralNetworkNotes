@@ -1,0 +1,505 @@
+#+TITLE: Gradient Descent
+#+PROPERTY: header-args:jupyter-python :session gradients
+#+PROPERTY: header-args:jupyter-python+ :async yes
+#+PROPERTY: header-args:jupyter-python+ :tangle gradients.py
+#+PROPERTY: header-args:jupyter-python+ :results raw drawer
+#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+
+This section of this repo simply goes over the concepts of gradients and
+gradient descent math as it relates to neural networks. This work was put
+together while following along with the first half of this video:
+https://www.youtube.com/watch?v=VMj-3S1tku0.
+
+To begin with let's talk about what it means to "train" neural network or what
+is even going on inside or neural network. At the core of it neural networks use
+[[https://www.khanacademy.org/math/multivariable-calculus/applications-of-multivariable-derivatives/optimizing-multivariable-functions/a/what-is-gradient-descent][gradient descent]] to tweak themselves to get closer to a lower their "loss" or in
+other words get closer to our expected outcome when we provide them with input
+data. This gradient descent operation is performed by [[https://en.wikipedia.org/wiki/Backpropagation][backpropagation]]
+generally. Let's just dive into it from here following along with the video
+linked above.
+
+#+begin_src jupyter-python :results none :exports none
+  # This file was generated from the code blocks in ./README.org.
+#+end_src
+
+To begin learning how gradient descent works like start by importing some
+simple python libraries:
+#+begin_src jupyter-python :results none
+  import math
+  import numpy as np
+  import matplotlib.pyplot as plt
+  from graphviz import Digraph
+#+end_src
+
+Then let's define a scaler value function ~f~ of ~x~ that runs a simple
+equation on a given value and returns it:
+#+name: fofx
+#+begin_src jupyter-python :exports both
+  def f(x):
+      return 3*x**2 - 4*x + 5
+
+  f(3.0)
+#+end_src
+
+We can see that if we give our function a simple input of =3.0= we get back
+=20.0=.
+
+#+RESULTS: fofx
+:results:
+: 20.0
+:end:
+
+Now let's plot out this function so that we can see it's shape:
+#+name: xs
+#+begin_src jupyter-python :exports both
+  xs = np.arange(-5, 5, 0.25)
+  xs
+#+end_src
+
+We can see that x's is just an array of numbers from =-5= to =5= in steps of
+=0.25=:
+#+RESULTS: xs
+:results:
+: array([-5.  , -4.75, -4.5 , -4.25, -4.  , -3.75, -3.5 , -3.25, -3.  ,
+:        -2.75, -2.5 , -2.25, -2.  , -1.75, -1.5 , -1.25, -1.  , -0.75,
+:        -0.5 , -0.25,  0.  ,  0.25,  0.5 ,  0.75,  1.  ,  1.25,  1.5 ,
+:         1.75,  2.  ,  2.25,  2.5 ,  2.75,  3.  ,  3.25,  3.5 ,  3.75,
+:         4.  ,  4.25,  4.5 ,  4.75])
+:end:
+
+We can then get a set of y's by calling ~f~ on our =xs=:
+#+name: ys
+#+begin_src jupyter-python :exports both
+  ys = f(xs)
+  ys
+#+end_src
+
+#+RESULTS: ys
+:results:
+: array([100.    ,  91.6875,  83.75  ,  76.1875,  69.    ,  62.1875,
+:         55.75  ,  49.6875,  44.    ,  38.6875,  33.75  ,  29.1875,
+:         25.    ,  21.1875,  17.75  ,  14.6875,  12.    ,   9.6875,
+:          7.75  ,   6.1875,   5.    ,   4.1875,   3.75  ,   3.6875,
+:          4.    ,   4.6875,   5.75  ,   7.1875,   9.    ,  11.1875,
+:         13.75  ,  16.6875,  20.    ,  23.6875,  27.75  ,  32.1875,
+:         37.    ,  42.1875,  47.75  ,  53.6875])
+:end:
+
+We can then plot our =xs= and =ys=:
+#+name: xyplot
+#+begin_src jupyter-python :file images/plot.png :exports both
+  plt.plot(xs, ys)
+#+end_src
+
+#+RESULTS: xyplot
+:results:
+| <matplotlib.lines.Line2D | at | 0x7f9804dcf190> |
+#+attr_org: :width 780
+[[file:images/plot.png]]
+:end:
+
+From here what we can think through and test is what would be the derivative
+of this parabola at any given point =x=. Instead of deriving a derivative like
+we would by hand in a Calculus class as the math equation for a modern neural
+network would be tens of thousand of expressions long. In our simple example
+here though of a parabola we can look at the [[https://en.wikipedia.org/wiki/Derivative#Definition][definition of derivative]] and look
+at a couple of test cases:
+#+name: xincrease
+#+begin_src jupyter-python :exports both
+  h = 0.0001
+  x = 3.0
+  f(x + h)
+#+end_src
+
+We can see that if we slightly increase our =x= around point =3= our result is
+slightly bigger as well, which lines up with our above graph:
+#+RESULTS: xincrease
+:results:
+: 20.001400030000006
+:end:
+
+If we then run this through our derivative calculation:
+#+name: derivative
+#+begin_src jupyter-python :exports both
+  (f(x + h) - f(x))/h
+#+end_src
+
+We can get an approximation of our slope at this point. Decreasing the value
+of =h= closer and closer to =0= would give us a more and more accurate
+approximation.
+#+RESULTS: derivative
+:results:
+: 14.000300000063248
+:end:
+
+Now let's look at a more complex case:
+#+begin_src jupyter-python :exports both
+  a = 2.0
+  b = -3.0
+  c = 10.0
+  d = a*b + c
+  print(d)
+#+end_src
+
+#+RESULTS:
+:results:
+: 4.0
+:end:
+
+Now let's look at the derivatives of =d= with respect to =a=, =b=, and =c=:
+#+name: slope
+#+begin_src jupyter-python :exports both
+  h = 0.0001
+
+  # inputs
+  a = 2.0
+  b = -3.0
+  c = 10.0
+
+  d1 = a*b + c
+  a += h
+  d2 = a*b + c
+
+  print('d1:', d1)
+  print('d2:', d2)
+  print('slope:', (d2 - d1)/h)
+#+end_src
+
+We can see that increasing =a= causes the output of =d= to decrease. We can
+also see that the slope is equal to =b=:
+#+RESULTS: slope
+:results:
+: d1: 4.0
+: d2: 3.999699999999999
+: slope: -3.000000000010772
+:end:
+
+With that in mind let's look what happens when we increase the value of =b=:
+#+name: slope2
+#+begin_src jupyter-python :exports both
+  h = 0.0001
+
+  # inputs
+  a = 2.0
+  b = -3.0
+  c = 10.0
+
+  d1 = a*b + c
+  b += h
+  d2 = a*b + c
+
+  print('d1:', d1)
+  print('d2:', d2)
+  print('slope:', (d2 - d1)/h)
+#+end_src
+
+We can see in this case that increasing =b= increases the output of =d=. Also
+this time our slope is equal to the value of =a=:
+#+RESULTS: slope2
+:results:
+: d1: 4.0
+: d2: 4.0002
+: slope: 2.0000000000042206
+:end:
+
+Finally we can look at what happens when we increase =c=:
+#+name: slope3
+#+begin_src jupyter-python :exports both
+  h = 0.0001
+
+  # inputs
+  a = 2.0
+  b = -3.0
+  c = 10.0
+
+  d1 = a*b + c
+  c += h
+  d2 = a*b + c
+
+  print('d1:', d1)
+  print('d2:', d2)
+  print('slope:', (d2 - d1)/h)
+#+end_src
+
+We can see that increasing =c= increases the output of =d= and our slope in
+this case is equal to =1=. This is because increasing =c= directly effects the
+outcome of =d= because it is not being multiplied by another value like =a=
+and =b= were:
+#+RESULTS: slope3
+:results:
+: d1: 4.0
+: d2: 4.0001
+: slope: 0.9999999999976694
+:end:
+
+The slopes in all of the above examples essentially tell us how much weight each
+of these values has on the final outcome of our equation. Using this information
+we can see that increasing =b= will cause our answer (=d=) to increase more than
+if we were to increase =c= by the same amount. These slopes are the gradients of
+each of our numbers and they simply represent the impact each number has on the
+whole problem.
+
+* Manual Gradient Math
+  For this section we are going to start looking at how gradients are tweaked
+  within a neural network. We will begin by manually calculating the gradients
+  on our own to get a core understanding of how these are calculated within a
+  neural network.
+
+  To begin this effort let's create a couple of functions to graph math
+  equations using the =Digraph= library:
+  #+begin_src jupyter-python :results none
+    # trace pieces together all of the nodes in our math problems
+    def trace(root):
+        # builds a set of all nodes and edges in a graph
+        nodes, edges = set(), set()
+        def build(v):
+            if v not in nodes:
+                nodes.add(v)
+                for child in v._prev:
+                    edges.add((child, v))
+                    build(child)
+        build(root)
+        return nodes, edges
+
+    # draw_dot is used to draw a digram of our math problems from a root node
+    def draw_dot(root):
+        dot = Digraph(format='svg', graph_attr={'rankdir': 'LR'}) # LR = left to right
+
+        nodes, edges = trace(root)
+        for n in nodes:
+            uid = str(id(n))
+            # for any value in the graph, create a rectangular ('record') node for it
+            dot.node(
+                name = uid, label = "{ %s | data %.4f | grad %.4f }" % (
+                    n.label,
+                    n.data,
+                    n.grad
+                ),
+                shape='record'
+            )
+            if n._op:
+                # if this value is a result of some operation, create an op node for it
+                dot.node(name = uid + n._op, label = n._op)
+                # and connect this node to it
+                dot.edge(uid + n._op, uid)
+
+        for n1, n2 in edges:
+            # connect n1 to the op node of n2
+            dot.edge(str(id(n1)), str(id(n2)) + n2._op)
+
+        return dot
+  #+end_src
+
+  Now we will create a python class called =Value= where we will define how we
+  can represent and manipulate data in our equations:
+  #+begin_src jupyter-python :results none
+    # Our Value class implements logic similar to a Tensor class found in PyTorch
+    class Value:
+        def __init__(self, data, _children=(), _op='', label=''):
+            self.data = data
+            self.grad = 0.0
+            self._prev = set(_children)
+            self._op = _op
+            self.label = label
+
+        def __repr__(self):
+            return f"Value(data={self.data})"
+
+        def __add__(self, other):
+            out = Value(self.data + other.data, (self, other), '+')
+            return out
+
+        def __mul__(self, other):
+            out = Value(self.data * other.data, (self, other), '*')
+            return out
+
+        def tanh(self):
+            x = self.data
+            t = (math.exp(2*x) - 1)/(math.exp(2*x) + 1)
+            out = Value(t, (self, ), 'tanh')
+            return out
+
+        def exp(self):
+            x = self.data
+            out = Value(math.exp(x), (self, ), 'exp')
+            return out
+  #+end_src
+
+  As the comment in our code says this =Value= class implements logic similar to
+  the Tensor class that can be found in =PyTorch=, which is the leading python
+  library for neural networks at the time of writing this.
+
+  If you aren't too familiar with python this code could look a little daunting,
+  but essentially we are just defining a class that we can call when we want to
+  create values of data. The double underscore functions essentially just allow
+  us to override and define how operators work with our =Value= class. The
+  ~__init__~ function allows us to define what happens when a value is
+  created. To see a more in depth list of this "dunder" methods refer to: [[https://blog.finxter.com/python-list-of-dunder-methods/][this]].
+
+  Now let's create some variables using our new =Value= class:
+  #+begin_src jupyter-python :results none
+    a = Value(2.0, label='a')
+    b = Value(-3.0, label='b')
+    c = Value(10.0, label='c')
+    e = a*b; e.label = 'e'
+    d = e + c; d.label = 'd'
+    f = Value(-2.0, label='f')
+    L = d * f; L.label = 'L'
+  #+end_src
+
+  And now we can visualize our entire equation we built out with the ~draw_dot~
+  function we defined earlier:
+  #+name: graph
+  #+begin_src jupyter-python :exports both :file images/graph.svg
+    draw_dot(L)
+  #+end_src
+
+  This will give us the following graph:
+  #+RESULTS: graph
+  :results:
+  [[file:images/graph.svg]]
+  :end:
+
+  So now we have successfully created and graphed our equation. Next we are
+  going to set each of the gradients for each of the nodes in our equation. We
+  are going to do this through a process called back propagation, which will be
+  covered more in depth in the next section of this repo. We are going to simply
+  be setting our gradients for each of these data nodes manually just to get an
+  understanding of how back propagation works.
+
+  To begin we should start with our root node or in this case =L=. Since =L= is
+  our final node in this equation and is the answer to our problem increasing
+  =L= would directly increase our output so therefore =L= has a gradient of
+  =1=. Let's start with =L= and work backwards:
+  #+begin_src jupyter-python :results none
+    # Manually back propagating the gradients for each node.
+    # for information on how this is done:
+    # https://en.wikipedia.org/wiki/Derivative#Rules_of_computation
+    L.grad = 1.0
+  #+end_src
+
+  From here we want to work backwards through our equation and calculate the
+  gradient of each node. We can do this like we did before by adding a small
+  value ~h~ each to a node and dividing ~L2 - L1~ by ~h~ or we can go over some
+  of the basic rules of gradients.
+
+  When we were calculating the slope of previous equation in the first section
+  of this article we discovered that =a= had a slope equal to =b= and =b= had a
+  slope equal to =a=. This is because one of the rules of calculating gradients
+  with respect to the root node is that when two nodes are being multiplied the
+  gradient of each node will be the data of the node it is being multiplied with
+  times the gradient of their product. With this in mind we can fill in the
+  gradients of =d= and =f=:
+  #+begin_src jupyter-python :results none
+    f.grad = d.data * L.grad
+    d.grad = f.data * L.grad
+  #+end_src
+
+  Let's look at some of the other rules we can follow to save some time doing
+  manual math:
+  - The root node always has a gradient of 1. This is due to the fact that
+    increasing or decreasing the value of the root node directly effects our
+    answer by the amount increased or decreased.
+  - When multiplying two nodes together the gradient of one node is equal to
+    the value of the other node multiplied by the gradient of their product.
+  - When adding two nodes together the gradient of each node will be equal to
+    the gradient of their sum. This is because increasing or decreasing the
+    value of either node in the addition will directly effect the sum.
+  - When using hyperbolic functions you can reference the Derivatives section
+    of the wikipedia page on hyberbolic functions:
+    https://en.wikipedia.org/wiki/Hyperbolic_functions
+
+  With these in mind let's fill in the gradients of our other nodes:
+  #+begin_src jupyter-python :results none
+    c.grad = d.grad
+    e.grad = d.grad
+    a.grad = b.data * e.grad
+    b.grad = a.data * e.grad
+  #+end_src
+
+  With the gradients dictated we know that increasing any number with a positive
+  gradient will increase the value of L and increasing any number with a
+  negative gradient will decrease the value of L.
+
+  Finally let's draw our backpropagated problem at this point:
+  #+name: graph2
+  #+begin_src jupyter-python :exports both :file images/graph2.svg
+    draw_dot(L)
+  #+end_src
+
+  #+RESULTS: graph2
+  :results:
+  [[file:images/graph2.svg]]
+  :end:
+
+  This does cover the concept of back propagating gradients, but just to hammer
+  it in let's look at a more complex example:
+  #+begin_src jupyter-python :results none
+    # inputs x1,x2
+    x1 = Value(2.0, label='x1')
+    x2 = Value(0.0, label='x2')
+    # weights w1,w2
+    w1 = Value(-3.0, label='w1')
+    w2 = Value(1.0, label='w2')
+    # bias of the neuron
+    # - This number was chosen to give simpiler numbers to work with during
+    #   backpropagation
+    b = Value(6.8813735870195432, label='b')
+    # x1*w1 + x2*w2 + b
+    x1w1 = x1 * w1; x1w1.label = 'x1*w1'
+    x2w2 = x2 * w2; x2w2.label = 'x2*w2'
+    x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+    n = x1w1x2w2 + b; n.label = 'n'
+    o = n.tanh(); o.label = 'o'
+  #+end_src
+
+  Now let's graph out this equation:
+  #+name: graph3
+  #+begin_src jupyter-python :exports both :file images/graph3.svg
+    draw_dot(o)
+  #+end_src
+
+  This will give us:
+  #+RESULTS: graph3
+  :results:
+  [[file:images/graph3.svg]]
+  :end:
+
+  Now let's set each node's gradient starting with =o= by following the rules
+  stated above:
+  #+begin_src jupyter-python :results none
+    o.grad = 1.0
+    n.grad = 1 - (o.data**2)
+    x1w1x2w2.grad = n.grad
+    b.grad = n.grad
+    x1w1.grad = x1w1x2w2.grad
+    x2w2.grad = x1w1x2w2.grad
+    x1.grad = w1.data * x1w1.grad
+    w1.grad = x1.data * x1w1.grad
+    x2.grad = w2.data * x2w2.grad
+    w2.grad = x2.data * x2w2.grad
+  #+end_src
+
+  With that out of the way we can graph our equation again to see if all of our
+  gradients are set:
+  #+name: graph4
+  #+begin_src jupyter-python :exports both :file images/graph4.svg
+    draw_dot(o)
+  #+end_src
+
+  Which gives us:
+  #+RESULTS: graph4
+  :results:
+  [[file:images/graph4.svg]]
+  :end:
+
+  Manual backpropagation is quite tedious and unfeasible though so going forward
+  we won't be doing this manually anymore thankfully.
+
+  That covers the core concept of how an equation is back propagated. For more
+  information on how this is actually useful to use you should check out the
+  next section of my notes: [[../back-propagation/][back propagation]]
+
+# Local Variables:
+# org-image-actual-width: (1024)
+# End:

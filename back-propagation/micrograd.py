@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+# This file was generated from the code blocks in ./README.org.
+
+#!/usr/bin/env python
 # Same libraries as before:
 import math
-import random
 from graphviz import Digraph
 
 # Same trace function as before:
@@ -45,8 +47,7 @@ def draw_dot(root):
 
     return dot
 
-# Please refer to auto-backpropagation.py for some insight into what this
-# class does.
+# This Value class has been expanded upon from gradients section
 class Value:
     def __init__(self, data, _children=(), _op='', label=''):
         self.data = data
@@ -136,6 +137,7 @@ class Value:
 
         return out
 
+    # used to kick off our back propagation
     def backward(self):
         # build a topologic graph
         topo = []
@@ -152,6 +154,8 @@ class Value:
         for node in reversed(topo):
             node._backward()
 
+import random
+
 class Neuron:
     # nin = Number of inputs
     def __init__(self, nin):
@@ -160,12 +164,18 @@ class Neuron:
 
     def __call__(self, x):
         # w * x + b
+        # The zip function here will pair up our w's with our x's
         act = sum((wi*xi for wi, xi in zip(self.w, x)), self.b)
         out = act.tanh()
         return out
 
     def parameters(self):
         return self.w + [self.b]
+
+x = [2.0, 3.0]
+n = Neuron(2)
+
+n(x)
 
 # Let's create a layer of Neurons
 class Layer:
@@ -174,11 +184,18 @@ class Layer:
         self.neurons = [Neuron(nin) for _ in range(nout)]
 
     def __call__(self, x):
+        # outs = Number of neurons in this layer
         outs = [n(x) for n in self.neurons]
         return outs[0] if len(outs) == 1 else outs
 
     def parameters(self):
         return [p for neuron in self.neurons for p in neuron.parameters()]
+
+x = [2.0, 3.0]
+# A layer with 2 inputs and 3 outputs
+n = Layer(2, 3)
+
+n(x)
 
 # Let's create an MLP (Multi Layer Perceptron)
 class MLP:
@@ -196,63 +213,51 @@ class MLP:
         return [p for layer in self.layers for p in layer.parameters()]
 
 x = [2.0, 3.0, -1.0]
+# 3 inputs into 2 layers of 4 and 1 output
 n = MLP(3, [4, 4, 1])
 
-# We can draw a graph of our MLP:
-draw_dot(n(x)).render(directory='micrograd-output')
+n(x)
 
-# Now let's look at a practical example to piece all of this together:
-# Let's create the following data set which will contain 4 sets of inputs for
-# our neural network
+draw_dot(n(x))
+
 xs = [
     [2.0, 3.0, -1.0],
     [3.0, -1.0, 0.5],
     [0.5, 1.0, 1.0],
     [1.0, 1.0, -1.0],
 ]
-# And ys will be the 4 results we would like our Neural network to output given
-# each set of inputs
+
 ys = [1.0, -1.0, -1.0, 1.0] # desired targets
 
-# ypred will be what our Neural Network currently outputs for each of these
-# examples
 ypred = [n(x) for x in xs]
+
 print('ypred:', ypred)
 
-# The loss is a concept in deep learning that represents how far off we are from
-# our desired targets.
 # ygt = y ground truth
 # yout = y outputs
 loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
 print('loss:', loss)
 
-# Now that we have computed our loss we can backpropagate
 loss.backward()
 
-# With our backpropagation complete we can output a graph of our new network:
-draw_dot(n(x)).render(directory='micrograd-output2')
+draw_dot(loss)
 
-# Then we can adjust our parameters by their gradient to slowly tweak our
-# Neurons to get a smaller loss and thus closer to our desired outputs:
 for p in n.parameters():
     p.data += -0.01 * p.grad
 
-# After making these adjustments it is important to recalculate our loss and
-# backpropgrate our new gradient values:
 ypred = [n(x) for x in xs]
 loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
 print('loss:', loss)
 
-# Don't forget to zero out your gradients before backpropagating!
 for p in n.parameters():
     p.grad = 0.0
 
-# After zeroing our gradients we can backpropagate and output a new graph
 loss.backward()
-draw_dot(n(x)).render(directory='micrograd-output3')
 
-# Now as fun as it is to iterate over these steps over and over until we reach
-# our desired outputs let's put this in a loop:
+draw_dot(loss)
+
 for k in range(100):
     # forward pass
     ypred = [n(x) for x in xs]
@@ -269,6 +274,6 @@ for k in range(100):
 
     print(k, loss.data)
 
-# Now let's see how close we got to our desired outputs:
 print('ypred:', ypred)
-draw_dot(n(x)).render(directory='micrograd-output4')
+
+draw_dot(loss)

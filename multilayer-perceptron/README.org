@@ -1,14 +1,36 @@
 #+TITLE: MLP
+#+PROPERTY: header-args:jupyter-python :session mlp
+#+PROPERTY: header-args:jupyter-python+ :async yes
+#+PROPERTY: header-args:jupyter-python+ :tangle mlp.py
+#+PROPERTY: header-args:jupyter-python+ :results raw drawer
+#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
 
 This directory contains work from [[https://www.youtube.com/watch?v=TCH_1BHY58I&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ&index=4][part 3]] of Neural Networks: Zero to Hero by
-Andrej Karpathy. This directory goes through rebuilding [[https://github.com/karpathy/makemore][makemore]].
+Andrej Karpathy. This directory goes through rebuilding multilayer perceptron of
+[[https://github.com/karpathy/makemore][makemore]].
 
-This effort is to reimplement the same functionality we did in the bigram data
-model work, but this time in an [[https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf][MLP]].
+As we saw in the last section a bigram language model isn't really that good at
+generate unique names for us as it only has context for what character *might*
+come after the character it has been provided. This effort is to reimplement the
+same functionality we did in the bigram data model work, but this time in an
+[[https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf][MLP]]. The idea behind a multilayer perceptron can be viewed in the following
+diagram:
+[[file:images/mlp.png]]
 
-The included `names.txt` dataset, as an example, has the most common 32K names
-takes from [ssa.gov](https://www.ssa.gov/oact/babynames/) for the year 2018. It
-looks like:
+This is image was built with the mind set of the example provided in the MLP
+document linked above, wherein the neural network was built with a dataset of
+17,000 possible words. In the above image we can see that three indexes are
+being passed into the neural network. These indexes are the index of the word in
+the dataset (these index would be integers ranging from 0-16,999). In the
+diagram they also have a lookup table, ~C~, that is used to lookup the word the
+index correlates to.
+
+#+begin_src jupyter-python :results none :exports none
+  # This file was generated from the code blocks in ./README.org.
+#+end_src
+
+The included =names.txt= dataset, as an example, has the most common 32,000
+names taken from [[https://www.ssa.gov/oact/babynames/][ssa.gov]] for the year 2018. It looks like:
 #+begin_example
 emma
 olivia
@@ -18,3 +40,29 @@ sophia
 charlotte
 ...
 #+end_example
+
+We will begin by importing ~PyTorch~ and ~matplotlib~:
+#+begin_src jupyter-python :results none
+  import torch
+  import torch.nn.functional as F
+  import matplotlib.pyplot as plt # for making figures
+#+end_src
+
+Then we can begin by opening our =names.txt= file and storing all of the names
+in a variable:
+#+begin_src jupyter-python :results none
+  words = open('names.txt', 'r').read().splitlines()
+#+end_src
+
+Now we can build the vocabulary of characters and mappings for converting to and
+from integers like we did in the [[../bigram-language-model][bigram]] section of this repository:
+#+begin_src jupyter-python :results none
+  chars = sorted(list(set(''.join(words))))
+  stoi = {s:i+1 for i,s in enumerate(chars)}
+  stoi['.'] = 0
+  itos = {i:s for s,i in stoi.items()}
+#+end_src
+
+# Local Variables:
+# org-image-actual-width: (1024)
+# End:

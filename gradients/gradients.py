@@ -1,7 +1,80 @@
 #!/usr/bin/env python
+# This file was generated from the code blocks in ./README.org.
+
 import math
-# Importing the graphviv Digraph library to digram our math problems
+import numpy as np
+import matplotlib.pyplot as plt
 from graphviz import Digraph
+
+def f(x):
+    return 3*x**2 - 4*x + 5
+
+f(3.0)
+
+xs = np.arange(-5, 5, 0.25)
+xs
+
+ys = f(xs)
+ys
+
+plt.plot(xs, ys)
+
+h = 0.0001
+x = 3.0
+f(x + h)
+
+(f(x + h) - f(x))/h
+
+a = 2.0
+b = -3.0
+c = 10.0
+d = a*b + c
+print(d)
+
+h = 0.0001
+
+# inputs
+a = 2.0
+b = -3.0
+c = 10.0
+
+d1 = a*b + c
+a += h
+d2 = a*b + c
+
+print('d1:', d1)
+print('d2:', d2)
+print('slope:', (d2 - d1)/h)
+
+h = 0.0001
+
+# inputs
+a = 2.0
+b = -3.0
+c = 10.0
+
+d1 = a*b + c
+b += h
+d2 = a*b + c
+
+print('d1:', d1)
+print('d2:', d2)
+print('slope:', (d2 - d1)/h)
+
+h = 0.0001
+
+# inputs
+a = 2.0
+b = -3.0
+c = 10.0
+
+d1 = a*b + c
+c += h
+d2 = a*b + c
+
+print('d1:', d1)
+print('d2:', d2)
+print('slope:', (d2 - d1)/h)
 
 # trace pieces together all of the nodes in our math problems
 def trace(root):
@@ -83,38 +156,22 @@ d = e + c; d.label = 'd'
 f = Value(-2.0, label='f')
 L = d * f; L.label = 'L'
 
+draw_dot(L)
+
 # Manually back propagating the gradients for each node.
 # for information on how this is done:
 # https://en.wikipedia.org/wiki/Derivative#Rules_of_computation
 L.grad = 1.0
+
 f.grad = d.data * L.grad
 d.grad = f.data * L.grad
+
 c.grad = d.grad
 e.grad = d.grad
 a.grad = b.data * e.grad
 b.grad = a.data * e.grad
 
-# When backpropagating gradients manually:
-# - The root node always has a gradient of 1. This is due to the fact that
-#   increasing or decreasing the value of the root node directly effects our
-#   answer by the amount increased or decreased.
-# - When multiplying two nodes together the gradient of one node is equal to
-#   the value of the other node multiplied by the gradient of their product.
-# - When adding two nodes together the gradient of each node will be equal to
-#   the gradient of their sum. This is because increasing or decreasing the
-#   value of either node in the addition will directly effect the sum.
-# - When using hyperbolic functions you can reference the Derivatives section
-#   of the wikipedia page on hyberbolic functions:
-#   https://en.wikipedia.org/wiki/Hyperbolic_functions
-
-# With the gradients dictated, when increasing any number with a positive
-# gradient will increase the value of L and increasing any number with a
-# negative gradient will decrease the value of L.
-
-# Let's draw our backpropagated problem at this point:
-draw_dot(L).render(directory='manual-backpropagation-output')
-
-# Now let's add onto our Value class to do more complex examples:
+draw_dot(L)
 
 # inputs x1,x2
 x1 = Value(2.0, label='x1')
@@ -133,6 +190,8 @@ x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
 n = x1w1x2w2 + b; n.label = 'n'
 o = n.tanh(); o.label = 'o'
 
+draw_dot(o)
+
 o.grad = 1.0
 n.grad = 1 - (o.data**2)
 x1w1x2w2.grad = n.grad
@@ -144,7 +203,4 @@ w1.grad = x1.data * x1w1.grad
 x2.grad = w2.data * x2w2.grad
 w2.grad = x2.data * x2w2.grad
 
-draw_dot(o).render(directory='manual-backpropagation-output2')
-
-# Manual backpropagation is quite tedious and unfeasible though so let's now
-# look at automating the backpropagation part in auto-backpropgating.py
+draw_dot(o)

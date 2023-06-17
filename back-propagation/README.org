@@ -1,9 +1,812 @@
 #+TITLE: Micrograd
+#+PROPERTY: header-args:jupyter-python :session micrograd
+#+PROPERTY: header-args:jupyter-python+ :async yes
+#+PROPERTY: header-args:jupyter-python+ :tangle micrograd.py
+#+PROPERTY: header-args:jupyter-python+ :results raw drawer
+#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+
+This is the second part of my notes on neural networks. The first part was on
+[[../gradients/][gradients]] and that part should be viewed first if this neural networks are new
+to you.
 
 This is simply my reimplementation of [[https://github.com/karpathy/micrograd][micrograd]] and exists only for me to learn
 more about neural network technologies. I worked on this while following along
 with this video: https://www.youtube.com/watch?v=VMj-3S1tku0.
 
-If this is also your introduction to Neural Networks like it was mine you should
-start with [[./manual-backpropagating.py]] and follow along with the video linked
-above.
+#+begin_src jupyter-python :results none :exports none
+  # This file was generated from the code blocks in ./README.org.
+#+end_src
+
+In the previous section of this repo we built out a couple of functions to graph
+our equations and we will be reusing these functions in this example. Let's
+start by importing some python libraries:
+#+begin_src jupyter-python :results none
+  #!/usr/bin/env python
+  # Same libraries as before:
+  import math
+  from graphviz import Digraph
+#+end_src
+
+Now let's create those graphing functions previously mentioned:
+#+begin_src jupyter-python :results none
+  # Same trace function as before:
+  def trace(root):
+      # builds a set of all nodes and edges in a graph
+      nodes, edges = set(), set()
+      def build(v):
+          if v not in nodes:
+              nodes.add(v)
+              for child in v._prev:
+                  edges.add((child, v))
+                  build(child)
+      build(root)
+      return nodes, edges
+
+  # Same draw_dot function as before:
+  def draw_dot(root):
+      dot = Digraph(format='svg', graph_attr={'rankdir': 'LR'}) # LR = left to right
+
+      nodes, edges = trace(root)
+      for n in nodes:
+          uid = str(id(n))
+          # for any value in the graph, create a rectangular ('record') node for it
+          dot.node(
+              name = uid, label = "{ %s | data %.4f | grad %.4f }" % (
+                  n.label,
+                  n.data,
+                  n.grad
+              ),
+              shape='record'
+          )
+          if n._op:
+              # if this value is a result of some operation, create an op node for it
+              dot.node(name = uid + n._op, label = n._op)
+              # and connect this node to it
+              dot.edge(uid + n._op, uid)
+
+      for n1, n2 in edges:
+          # connect n1 to the op node of n2
+          dot.edge(str(id(n1)), str(id(n2)) + n2._op)
+
+      return dot
+#+end_src
+
+We previously discussed how to back propagate gradients manually and now we are
+going to expand on our =Value= class so that we can more easily automate back
+propagation.
+
+We are going to start doing this by reimplementing the =Value= class we had
+previous built out in the last section, however this time we are going to expand
+its functionality to support a few more [[https://blog.finxter.com/python-list-of-dunder-methods/][dunder]] methods to expand its
+capabilities. We are also going to a new property to our init method called
+~_backward~. This property will be used to keep track how each of our nodes are
+chained together so that we can walk backwards through our nodes. Along with
+this each of our operator dunder methods will now have to track which node they
+are paired with so we can calculate the gradients.
+
+Finally we are going to define a ~_backward~ function in each of our dunder
+methods that will calculate the gradient of each node. Along with this we are
+going to define a ~backward~ function in our class that we will be able to call
+on our root node to kick off this backwards walkthrough of our equation.
+
+That was a lot to explain but it should all make sense when you read through
+it. With all of that explanation out of the way here is our new =Value= class:
+#+begin_src jupyter-python :results none
+  # This Value class has been expanded upon from gradients section
+  class Value:
+      def __init__(self, data, _children=(), _op='', label=''):
+          self.data = data
+          self.grad = 0.0
+          self._backward = lambda: None
+          self._prev = set(_children)
+          self._op = _op
+          self.label = label
+
+      def __repr__(self):
+          return f"Value(data={self.data})"
+
+      def __add__(self, other):
+          other = other if isinstance(other, Value) else Value(other)
+          out = Value(self.data + other.data, (self, other), '+')
+
+          def _backward():
+              self.grad += 1.0 * out.grad
+              other.grad += 1.0 * out.grad
+          out._backward = _backward
+
+          return out
+
+      def __mul__(self, other):
+          other = other if isinstance(other, Value) else Value(other)
+          out = Value(self.data * other.data, (self, other), '*')
+
+          def _backward():
+              self.grad += other.data * out.grad
+              other.grad += self.data * out.grad
+          out._backward = _backward
+
+          return out
+
+      def __pow__(self, other):
+          assert isinstance(other, (int, float)), "only supporting int/float powers for now"
+          out = Value(self.data**other, (self,), f'**{other}')
+
+          def _backward():
+              self.grad += other * (self.data ** (other - 1)) * out.grad
+          out._backward = _backward
+
+          return out
+
+      def __radd__(self, other): # other + self
+          return self + other
+
+      def __rmul__(self, other): # other * self
+          return self * other
+
+      def __rtruediv__(self, other): # other / self
+          return other / self.data
+
+      def __rpow__(self, other): # other**self
+          return other**self.data
+
+      def __rsub__(self, other): # other - self
+          return other - self.data
+
+      def __truediv__(self, other): # self / other
+          return self * other**-1
+
+      def __neg__(self): # -self
+          return self * -1
+
+      def __sub__(self, other): # self - other
+          return self + (-other)
+
+      def tanh(self):
+          x = self.data
+          t = (math.exp(2*x) - 1)/(math.exp(2*x) + 1)
+          out = Value(t, (self, ), 'tanh')
+
+          def _backward():
+              self.grad += (1 - t**2) * out.grad
+          out._backward = _backward
+
+          return out
+
+      def exp(self):
+          x = self.data
+          out = Value(math.exp(x), (self, ), 'exp')
+
+          def _backward():
+              self.grad += out.data * out.grad
+          out._backward = _backward
+
+          return out
+
+      # used to kick off our back propagation
+      def backward(self):
+          # build a topologic graph
+          topo = []
+          visited = set()
+          def build_topo(v):
+              if v not in visited:
+                  visited.add(v)
+                  for child in v._prev:
+                      build_topo(child)
+                  topo.append(v)
+          build_topo(self)
+
+          self.grad = 1.0
+          for node in reversed(topo):
+              node._backward()
+
+#+end_src
+
+Now let's reimplement the final equation we put together in the last section and
+see if we can automatically back propagate the gradients in our equation:
+#+begin_src jupyter-python :tangle no :results none
+  # inputs x1,x2
+  x1 = Value(2.0, label='x1')
+  x2 = Value(0.0, label='x2')
+  # weights w1,w2
+  w1 = Value(-3.0, label='w1')
+  w2 = Value(1.0, label='w2')
+  # bias of the neuron
+  # - This number was chosen to give simpiler numbers to work with during
+  #   backpropagation
+  b = Value(6.8813735870195432, label='b')
+  # x1*w1 + x2*w2 + b
+  x1w1 = x1 * w1; x1w1.label = 'x1*w1'
+  x2w2 = x2 * w2; x2w2.label = 'x2*w2'
+  x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+  n = x1w1x2w2 + b; n.label = 'n'
+  o = n.tanh(); o.label = 'o'
+#+end_src
+
+With those redeclared in our new =Value= class we should be able to kick off
+back propagation like this:
+#+begin_src jupyter-python :tangle no :results none
+  # back propagate gradient
+  o.backward()
+#+end_src
+
+Let's now graph our equation and see if it looks right:
+#+name: graph
+#+begin_src jupyter-python :tangle no :exports both :file images/graph.svg
+  draw_dot(o)
+#+end_src
+
+#+RESULTS: graph
+:results:
+[[file:images/graph.svg]]
+:end:
+
+Yes! We have successfully back propagated automatically. Let's also test out
+some of the other operations we added to our =Value= class:
+#+begin_src jupyter-python :tangle no :results none
+  # inputs x1,x2
+  x1 = Value(2.0, label='x1')
+  x2 = Value(0.0, label='x2')
+  # weights w1,w2
+  w1 = Value(-3.0, label='w1')
+  w2 = Value(1.0, label='w2')
+  # bias of the neuron
+  # - This number was chosen to give simpiler numbers to work with during
+  #   backpropagation
+  b = Value(6.8813735870195432, label='b')
+  # x1*w1 + x2*w2 + b
+  x1w1 = x1 * w1; x1w1.label = 'x1*w1'
+  x2w2 = x2 * w2; x2w2.label = 'x2*w2'
+  x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+  n = x1w1x2w2 + b; n.label = 'n'
+  # -----
+  e = (2*n).exp()
+  o = (e - 1) / (e + 1)
+  o.label = 'o'
+  # -----
+#+end_src
+
+And now let's see if we can successfully back propagate this and graph it:
+#+name: graph2
+#+begin_src jupyter-python :tangle no :exports both :file images/graph2.svg
+  o.backward()
+
+  draw_dot(o)
+#+end_src
+
+#+RESULTS: graph2
+:results:
+[[file:images/graph2.svg]]
+:end:
+
+At this point our =Value= class implements much of the same logic that exists in
+=PyTorch= so let's take a look at how this same equation could be built using
+=PyTorch=. Let's begin by import =PyTorch=:
+#+begin_src jupyter-python :results none :tangle no
+  import torch
+#+end_src
+
+And now we can build out our equation using Tensors (in short Tensors are
+[[https://www.doitpoms.ac.uk/tlplib/tensors/what_is_tensor.php][multi deminsional arrays]] of scalars). You will also notice that we are setting
+~requires_grad~ to true for each of our nodes. This is because by default
+PyTorch doesn't keep track of gradient values for leaf nodes. This is done for
+efficiency as normally you would not need to track gradients for your input
+data. You will also notice that we are casting each of Tensors to ~double~ so
+that the Tensors will be in ~float64~ to match our =Value= class above:
+#+begin_src jupyter-python :results none :tangle no
+  x1 = torch.Tensor([2.0]).double();               x1.requires_grad = True
+  x2 = torch.Tensor([0.0]).double();               x2.requires_grad = True
+  w1 = torch.Tensor([-3.0]).double();              w1.requires_grad = True
+  w2 = torch.Tensor([1.0]).double();               w2.requires_grad = True
+  b = torch.Tensor([6.8813735870195432]).double(); b.requires_grad = True
+
+  n = x1*w1 + x2*w2 + b
+  o = torch.tanh(n)
+#+end_src
+
+Now PyTorch actually has a ~backward~ function just like we defined in our
+=Value= class so we can actually call that =o= just like we did above. Also
+take note that when we want to print the value of an object when using PyTorch
+we use ~.item()~ to print the value. Without this we will simply print out the
+tensor data (this does include the value, but it also includes the shape and
+data type of the tensor):
+#+begin_src jupyter-python :exports both :tangle no
+  # Let's print out the value of o to confirm it is the same as our above example
+  print(o.data.item())
+
+  # Then let's back propagate our gradients
+  o.backward()
+#+end_src
+
+#+RESULTS:
+:results:
+: 0.7071066904050358
+:end:
+
+We did in fact get the same value for =o=. Let's also print out the gradients of
+our inputs and see if we get the same results as before:
+#+begin_src jupyter-python :exports both :tangle no
+  print('---')
+  print('x2', x2.grad.item())
+  print('w2', w2.grad.item())
+  print('x1', x1.grad.item())
+  print('w1', w1.grad.item())
+#+end_src
+
+#+RESULTS:
+:results:
+: ---
+: x2 0.5000001283844369
+: w2 0.0
+: x1 -1.5000003851533106
+: w1 1.0000002567688737
+:end:
+
+We did get the same results! This means we have successfully automated back
+propagation using our =Value= class and confirmed that it matches the outputs of
+PyTorch.
+
+* Implementing micrograd
+  So to continue we are going to build out neural network using our =Value=
+  class that we created. Before we do that though let's talk about how the math
+  we built out actually replicates a neural network ([[https://cs231n.github.io/convolutional-networks/][reference]]).
+
+  A high level view of a neural network could be summarized like this:
+  [[file:images/neural_net.jpeg]]
+
+  In short a neural network is a layer of input neurons, =N= number of hidden
+  layers of neurons in the middle, and an output layer of neurons. The hidden
+  layers do some form of manipulation on the input data to form the output
+  layer. Each of these neurons can be visualized like:
+  [[file:images/neuron_model.jpeg]]
+
+  Now in a biological world neurons are incredibly complicated and still not
+  fully understood, but in the mathematical sense they can be represented by the
+  image above. We can describe this model as having some amount of inputs
+  (=x='s). These =x= inputs are interacted with synapses (=w='s)
+  multiplicatively (=wx=) and passed to the cell body of the neuron. The cell
+  body of the neuron has some sort of bias (=b=). This can be thought of as the
+  innate trigger happiness of this neuron (meaning it can increase or decrease
+  the trigger happiness of this neuron), which is added to the sum of all of our
+  =wx= inputs. Finally this is run through some sort of activation function
+  =f=. This activation function is usual some type of squashing function like
+  for instance a [[https://en.wikipedia.org/wiki/Hyperbolic_functions#Definitions][tanh]] or other hyperbolic function.
+
+  The output of our neuron then could be written in the mathematical expression:
+  [[file:images/neuron_equation.svg]]
+
+  So now let's look at how we can actually use our =Value= class to build out a
+  multi layer perceptron (our case probably a two layer perceptron). Let's begin
+  by defining a class for Neurons that use our =Value= class. Our =Neuron=
+  class will take =n= number of inputs so for our ~__init__~ method will take
+  in a variable called =nin=. We will also make user of the ~__call__~ method
+  to implement the function we shown above. Finally we will have a parameters
+  function which will come in handy latter to get a collection of all of the
+  parameters in our neural network:
+  #+begin_src jupyter-python :results none
+    import random
+
+    class Neuron:
+        # nin = Number of inputs
+        def __init__(self, nin):
+            self.w = [Value(random.uniform(-1,1)) for _ in range(nin)]
+            self.b = Value(random.uniform(-1,1))
+
+        def __call__(self, x):
+            # w * x + b
+            # The zip function here will pair up our w's with our x's
+            act = sum((wi*xi for wi, xi in zip(self.w, x)), self.b)
+            out = act.tanh()
+            return out
+
+        def parameters(self):
+            return self.w + [self.b]
+  #+end_src
+
+  To test this let's create a neuron with 2 inputs:
+  #+name: nueron
+  #+begin_src jupyter-python :exports both
+    x = [2.0, 3.0]
+    n = Neuron(2)
+
+    n(x)
+  #+end_src
+
+  Every time we create a neuron will get a random weight and bias value so we
+  will get a different output. This time we got:
+  #+RESULTS: nueron
+  :results:
+  : Value(data=0.33548597941008335)
+  :end:
+
+  The next layer of abstraction in our diagram of neural networks is that we
+  need to have layers of neurons. When we have a layer of neurons the neurons
+  themselves in the layer are not necessarily connected to each other, but each
+  neuron in the layer is connected to the neurons in the previous layer. To
+  represent this in our code we are going to create a =Layer= class. Our
+  =Layer= class is going to take in a =n= number of input neurons and =n=
+  number of output neurons (nin and nout) and will keep track of it's own
+  output neurons so that we can chain layers together (outs). We also keep
+  track of the parameters within each layer, which in this case is essentially
+  a list of each of the neurons parameters:
+  #+begin_src jupyter-python :results none
+    # Let's create a layer of Neurons
+    class Layer:
+        # nout = Number of output Neurons
+        def __init__(self, nin, nout):
+            self.neurons = [Neuron(nin) for _ in range(nout)]
+
+        def __call__(self, x):
+            # outs = Number of neurons in this layer
+            outs = [n(x) for n in self.neurons]
+            return outs[0] if len(outs) == 1 else outs
+
+        def parameters(self):
+            return [p for neuron in self.neurons for p in neuron.parameters()]
+  #+end_src
+
+  So now we can create a layer of neurons:
+  #+name: layer
+  #+begin_src jupyter-python :exports both
+    x = [2.0, 3.0]
+    # A layer with 2 inputs and 3 outputs
+    n = Layer(2, 3)
+
+    n(x)
+  #+end_src
+
+  Again every time we create a layer we are going to get random weights and
+  biases on our neurons, but this time we got the following:
+  #+RESULTS: layer
+  :results:
+  | Value | (data=-0.9400793949715526) | Value | (data=0.9140586663774759) | Value | (data=0.9615660989674627) |
+  :end:
+
+  It is also worth noting that in our =Layer= class we defined an if statement
+  on our return where if we are looking at the last layer we can just return our
+  0th element of our =outs= list as it is the only element. Without this
+  conditional our print statement here would be in a list when we don't need it
+  to be.
+
+  To complete the neural network diagram we are going to define a multi layer
+  perceptron which will define in an =MLP= class. Our =MLP= class will take =n=
+  number of inputs and this time will take list of =n= number of outputs, which
+  define the sizes of all of the layers in our MLP. We will also yet again have
+  a parameters function which will keep track of each of the parameters in each
+  layer in our MLP:
+  #+begin_src jupyter-python :results none
+    # Let's create an MLP (Multi Layer Perceptron)
+    class MLP:
+        # nouts = list of nout
+        def __init__(self, nin, nouts):
+            sz = [nin] + nouts
+            self.layers = [Layer(sz[i], sz[i+1]) for i in range(len(nouts))]
+
+        def __call__(self, x):
+            for layer in self.layers:
+                x = layer(x)
+            return x
+
+        def parameters(self):
+            return [p for layer in self.layers for p in layer.parameters()]
+  #+end_src
+
+  Now let's create an MLP using our =MLP= class:
+  #+name: mlp
+  #+begin_src jupyter-python :exports both
+    x = [2.0, 3.0, -1.0]
+    # 3 inputs into 2 layers of 4 and 1 output
+    n = MLP(3, [4, 4, 1])
+
+    n(x)
+  #+end_src
+
+  With this we get the result of a forward pass of our MLP, this time we got:
+  #+RESULTS: mlp
+  :results:
+  : Value(data=-0.790206267391274)
+  :end:
+
+  At this point we can actually run ~draw_dot~ on our MLP to get a graph of our
+  entire network:
+  #+name: mlpgraph
+  #+begin_src jupyter-python :exports both :file images/mlpgraph.svg
+    draw_dot(n(x))
+  #+end_src
+
+  As you may have expected this graph is quite involved at this point which is
+  why manually calculating the gradients of our nodes would be infeasible at
+  this point:
+  #+RESULTS: mlpgraph
+  :results:
+  [[file:images/mlpgraph.svg]]
+  :end:
+
+* Back Propagation
+  So now that we can build out an entire MLP with our classes let's look at more
+  realistic example of how to back propagate our MLP and why we want to back
+  propagate our MLP. Let's create a data set which will contain 4 sets of inputs
+  for our neural network (=xs=):
+  #+begin_src jupyter-python :results none
+    xs = [
+        [2.0, 3.0, -1.0],
+        [3.0, -1.0, 0.5],
+        [0.5, 1.0, 1.0],
+        [1.0, 1.0, -1.0],
+    ]
+  #+end_src
+
+  Let's also define the 4 results we would like our neural network to output
+  given each set of inputs (=ys=):
+  #+begin_src jupyter-python :results none
+    ys = [1.0, -1.0, -1.0, 1.0] # desired targets
+  #+end_src
+
+  Let's then get a list of what our neural network currently outputs given these
+  inputs (=ypred=):
+  #+name: ypred
+  #+begin_src jupyter-python :exports both
+    ypred = [n(x) for x in xs]
+
+    print('ypred:', ypred)
+  #+end_src
+
+  Currently we are given the following with the neural network we generated
+  above (keep in mind that if we regenerate our neural network will be given
+  different weights and biases):
+  #+RESULTS: ypred
+  :results:
+  : ypred: [Value(data=-0.790206267391274), Value(data=-0.7310181701096696), Value(data=0.7341967057517118), Value(data=-0.7862416973918567)]
+  :end:
+
+  We can see that currently our outputs are bit off of our target outputs. To
+  get an idea of how far off we are we can calculate the [[https://developers.google.com/machine-learning/crash-course/descending-into-ml/training-and-loss][loss]] of our current
+  neural network:
+  #+name: loss
+  #+begin_src jupyter-python
+    # ygt = y ground truth
+    # yout = y outputs
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+    print('loss:', loss)
+  #+end_src
+
+  Currently our neural network has a loss of:
+  #+RESULTS: loss
+  :results:
+  : loss: Value(data=9.475287320359579)
+  :end:
+
+  Now that we have calculated our current loss we can back propagate our neural
+  network to get gradients for each of the nodes in our MLP:
+  #+begin_src jupyter-python :results none
+    loss.backward()
+  #+end_src
+
+  We can then graph our neural network to confirm that we have successfully back
+  propagated:
+  #+name: mlpgraph2
+  #+begin_src jupyter-python :exports both :file images/mlpgraph2.svg
+    draw_dot(loss)
+  #+end_src
+
+  At this point our graph is quite excessive as our graph now has been built up
+  by 4 forward passes of a neural network for everyone of the examples as well
+  as having a loss on top. Regardless here is the monstrosity itself:
+  #+RESULTS: mlpgraph2
+  :results:
+  [[file:images/mlpgraph2.svg]]
+  :end:
+
+  To tweak our neural network and get a smaller loss, which in turn means we are
+  closer to our desired targets, we can tweak each of our parameters (obtained
+  through our parameters functions) by their gradient value. In this case we
+  will tweak our data by a very small amount of =0.01 * gradient=. The reason
+  for this is if we adjust our data by too much at one time we could get a
+  rubber banding effect were our loss bounces back and forth between increasing
+  and decreasing in value. It is also worth noting that our current neural
+  network only has about =41= parameters, which is quite small. Some modern day
+  neural networks could billions or even trillions of parameters:
+  #+begin_src jupyter-python :results none
+    for p in n.parameters():
+        p.data += -0.01 * p.grad
+  #+end_src
+
+  After making these adjustments to our neural network it is important that we
+  recalculate our loss and back propagate our new gradient values:
+  #+name: loss2
+  #+begin_src jupyter-python :exports both
+    ypred = [n(x) for x in xs]
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+    print('loss:', loss)
+  #+end_src
+
+  We can see that we successfully brought down the total loss of our neural
+  network:
+  #+RESULTS: loss2
+  :results:
+  : loss: Value(data=9.19517988674704)
+  :end:
+
+  *Before we back propagate our new gradient values it is very important to zero
+  out our gradients!* Let's do that now:
+  #+begin_src jupyter-python :results none
+    for p in n.parameters():
+        p.grad = 0.0
+  #+end_src
+
+  Now let's back propagate and graph our updated neural network:
+  #+name: mlpgraph3
+  #+begin_src jupyter-python :exports both :file images/mlpgraph3.svg
+    loss.backward()
+
+    draw_dot(loss)
+  #+end_src
+
+  #+RESULTS: mlpgraph3
+  :results:
+  [[file:images/mlpgraph3.svg]]
+  :end:
+
+  Now as fun as it would be to iterate over these steps over and over until we
+  reach our desired targets let's put this in a loop to automate the
+  process. Like we talked about before tweaking the data of our parameters too
+  much at one time can cause a rubber banding effect, but tweaking our data too
+  little can cause our training to progress very slowly. For this example we
+  will just try tweaking our data by =0.04 * gradient= on each
+  parameter. Generally if we were to be training a neural network it would be
+  most efficient to start by tweaking with a larger value and decrease our
+  value as we iterate with training:
+  #+name: autobackpropagation
+  #+begin_src jupyter-python :exports both
+    for k in range(100):
+        # forward pass
+        ypred = [n(x) for x in xs]
+        loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+
+        # backward pass
+        for p in n.parameters():
+            p.grad = 0.0
+        loss.backward()
+
+        # update
+        for p in n.parameters():
+            p.data += -0.04 * p.grad
+
+        print(k, loss.data)
+  #+end_src
+
+  We can see through this wall of text that our loss is slowly climbing down to
+  =0=!
+  #+RESULTS: autobackpropagation
+  :results:
+  #+begin_example
+    0 9.19517988674704
+    1 7.773463530852206
+    2 5.8842167358126884
+    3 5.020298342185576
+    4 4.590496457616259
+    5 4.193994949289619
+    6 3.775250373181591
+    7 3.2333463998173833
+    8 2.5403906690379645
+    9 1.790941839760718
+    10 1.1395868990120053
+    11 0.7248291673368925
+    12 0.4936976059194683
+    13 0.36088863649423847
+    14 0.2787105022050324
+    15 0.2242186017315146
+    16 0.18600126960400276
+    17 0.15798125680160827
+    18 0.13669797783809817
+    19 0.12006286471222684
+    20 0.1067519951232781
+    21 0.09589076193215451
+    22 0.08688083407247216
+    23 0.0793004951192548
+    24 0.07284478172665726
+    25 0.0672881897176877
+    26 0.06246068558300173
+    27 0.05823183666392655
+    28 0.054500048004671384
+    29 0.05118509926445999
+    30 0.04822286632940916
+    31 0.04556152094708154
+    32 0.043158750061278735
+    33 0.0409796912451553
+    34 0.03899537921748829
+    35 0.03718156255016868
+    36 0.03551779217373467
+    37 0.03398671194474159
+    38 0.032573501171639145
+    39 0.031265432645138994
+    40 0.03005151933827659
+    41 0.028922229806569093
+    42 0.027869257276245604
+    43 0.026885331028059598
+    44 0.025964061354066155
+    45 0.025099811353167946
+    46 0.02428759032557208
+    47 0.0235229646589145
+    48 0.02280198296416784
+    49 0.022121112885635896
+    50 0.021477187525876316
+    51 0.020867359829628104
+    52 0.0202890635876267
+    53 0.01973997997162472
+    54 0.019218008711051098
+    55 0.01872124318093486
+    56 0.01824794879866299
+    57 0.01779654423049363
+    58 0.01736558499262937
+    59 0.016953749100054552
+    60 0.01655982447235644
+    61 0.0161826978518223
+    62 0.015821345027146935
+    63 0.015474822187622177
+    64 0.015142258258921262
+    65 0.014822848093501498
+    66 0.014515846407011458
+    67 0.01422056236752239
+    68 0.013936354757423889
+    69 0.013662627638835953
+    70 0.013398826462735358
+    71 0.013144434569945657
+    72 0.01289897003892609
+    73 0.012661982841099078
+    74 0.012433052269437594
+    75 0.012211784610314
+    76 0.01199781103230576
+    77 0.011790785668840708
+    78 0.01159038387432952
+    79 0.011396300635828506
+    80 0.011208249124362326
+    81 0.011025959371853147
+    82 0.010849177061191003
+    83 0.01067766241836793
+    84 0.010511189196818106
+    85 0.010349543745172973
+    86 0.010192524150585483
+    87 0.010039939450603242
+    88 0.009891608907305895
+    89 0.009747361338068207
+    90 0.009607034497885194
+    91 0.009470474508704136
+    92 0.009337535331661708
+    93 0.009208078278525475
+    94 0.009081971559000902
+    95 0.008959089860880861
+    96 0.008839313960305857
+    97 0.00872253035965517
+    98 0.00860863095082125
+    99 0.008497512701824767
+  #+end_example
+  :end:
+
+  Finally let's see how close we got to our desired outputs and let's redraw our
+  graph:
+  #+name: mlpgraph4
+  #+begin_src jupyter-python :exports both :file images/mlpgraph4.svg
+    print('ypred:', ypred)
+
+    draw_dot(loss)
+  #+end_src
+
+  #+RESULTS: mlpgraph4
+  :results:
+  : ypred: [Value(data=0.9582729922372971), Value(data=-0.9642926596870034), Value(data=-0.9379221913278412), Value(data=0.9596552228506491)]
+  [[file:images/mlpgraph4.svg]]
+  :end:
+
+  This actually summarizes the idea behind back propagation and training a
+  neural network. This also work at this point is also basically a rewrite of
+  [[https://github.com/karpathy/micrograd][micrograd]], which in itself is a tiny rewrite of the core concepts of
+  =PyTorch=.
+
+  The next section of this repo will cover [[../bigram-language-model][bigram language models]] and will
+  actually start to build out a usable neural network.
+
+# Local Variables:
+# org-image-actual-width: (1024)
+# End:
