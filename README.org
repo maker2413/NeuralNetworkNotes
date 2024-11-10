@@ -1,3 +1,5 @@
+#+TITLE: Neural Network Notes
+
 This repository exists for me to study neural networks and various technologies
 around that field. The only reason this repository is public is in case anyone
 else can benefit from what I have learned.
@@ -7,7 +9,7 @@ If this is your first time diving into Neural Networks I would highly recommend:
 
 If you are following along with the playlist linked above I would look at the
 directories in this repo in this order:
-- [[./gradients/][gradients]].
+- [[./gradients/README.org][gradients]].
 - [[./back-propagation/][back propagation]].
 - [[./bigram-language-model/][bigram language model]].
 - [[./multilayer-perceptron/][multilayer perceptron]].

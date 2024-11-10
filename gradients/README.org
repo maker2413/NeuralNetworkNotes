@@ -68,34 +68,30 @@ We can see that x's is just an array of numbers from =-5= to =5= in steps of
 
 We can then get a set of y's by calling ~f~ on our =xs=:
 #+name: ys
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value raw
   ys = f(xs)
   ys
 #+end_src
 
 #+RESULTS: ys
-:results:
-: array([100.    ,  91.6875,  83.75  ,  76.1875,  69.    ,  62.1875,
-:         55.75  ,  49.6875,  44.    ,  38.6875,  33.75  ,  29.1875,
-:         25.    ,  21.1875,  17.75  ,  14.6875,  12.    ,   9.6875,
-:          7.75  ,   6.1875,   5.    ,   4.1875,   3.75  ,   3.6875,
-:          4.    ,   4.6875,   5.75  ,   7.1875,   9.    ,  11.1875,
-:         13.75  ,  16.6875,  20.    ,  23.6875,  27.75  ,  32.1875,
-:         37.    ,  42.1875,  47.75  ,  53.6875])
-:end:
+[100.      91.6875  83.75    76.1875  69.      62.1875  55.75    49.6875
+  44.      38.6875  33.75    29.1875  25.      21.1875  17.75    14.6875
+  12.       9.6875   7.75     6.1875   5.       4.1875   3.75     3.6875
+   4.       4.6875   5.75     7.1875   9.      11.1875  13.75    16.6875
+  20.      23.6875  27.75    32.1875  37.      42.1875  47.75    53.6875]
 
 We can then plot our =xs= and =ys=:
 #+name: xyplot
-#+begin_src jupyter-python :file images/plot.png :exports both
+#+begin_src python :file images/plot.png :exports both :results value
   plt.plot(xs, ys)
 #+end_src
 
 #+RESULTS: xyplot
-:results:
-| <matplotlib.lines.Line2D | at | 0x7f9804dcf190> |
-#+attr_org: :width 780
+| <matplotlib.lines.Line2D | object | at | 0x7d3de0a59450> |
+
+The resulting plot looks like:
+#+attr_org: width 780
 [[file:images/plot.png]]
-:end:
 
 From here what we can think through and test is what would be the derivative
 of this parabola at any given point =x=. Instead of deriving a derivative like
