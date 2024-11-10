@@ -1,8 +1,8 @@
 #+TITLE: MLP
 #+PROPERTY: header-args:python :session mlp
 #+PROPERTY: header-args:python+ :tangle mlp.py
-#+PROPERTY: header-args:python+ :results value
 #+PROPERTY: header-args:python+ :exports both
+#+PROPERTY: header-args:python+ :results value
 #+PROPERTY: header-args:python+ :shebang "#!/usr/bin/env python"
 
 #+BEGIN_SRC elisp :exports none :results none
@@ -65,7 +65,7 @@ in a variable:
 #+end_src
 
 Let's just confirm how many names we have:
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   len(words)
 #+end_src
 
@@ -83,7 +83,7 @@ from integers like we did in the [[../bigram-language-model][bigram]] section of
 #+end_src
 
 We can output the contents of itos:
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   print(itos)
 #+end_src
 
@@ -94,7 +94,7 @@ And we get:
 Next we have to compile the dataset for the neural network. We will used a
 revised version of the code we used in the bigram language model section:
 #+name: builddataset
-#+begin_src python
+#+begin_src python :exports both 
   # Build the dataset
   block_size = 3 # context length: how many characters do we take to predict the next one
   X, Y = [], []
@@ -159,7 +159,7 @@ hia ---> .
 #+end_example
 
 For now our dataset looks as follows:
-#+begin_src python :results value drawer :tangle no
+#+begin_src python :exports both :results value drawer :tangle no
   X.shape, X.dtype, Y.shape, Y.dtype
 #+end_src
 
@@ -233,7 +233,7 @@ numbers:
 Before we try embed the contents of X into our lookup table C, let's first try
 to embed a single individual integer like =5=. One way to do that would just be
 to grab the 5th element of C:
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   C[5]
 #+end_src
 
@@ -250,7 +250,7 @@ has a dtype of float so we have to cast our ~one_hot~ matrix to be a float
 type. We can then do matrix multiplication with our =C= matrix and our ~one_hot~
 matrix as all values in our ~one_hot~ matrix will be zero except for the 5th
 element:
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   F.one_hot(torch.tensor(5), num_classes=27).float() @ C
 #+end_src
 
@@ -263,7 +263,7 @@ are just going to index into =C= because it is much faster. Not only is this
 simple to follow, but we can also index a list into =C= to get multiple embedded
 values:
 #+name: indexexample
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   C[[5,6,7,7,7]]
 #+end_src
 
@@ -277,7 +277,7 @@ This allows us to index multiple values:
 
 We can also index with a multi dimensional tensor so we can also just do:
 #+name: multiindex
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   C[X].shape
 #+end_src
 
@@ -291,7 +291,7 @@ So what we learned from all of this actually is that embedding with pytorch is
 very powerful so we can simply set =C= of =X= to a variable that we can
 reference:
 #+name: emb
-#+begin_src python
+#+begin_src python :exports both 
   emb = C[X]
   emb.shape
 #+end_src
@@ -327,7 +327,7 @@ with the [[https://pytorch.org/docs/stable/generated/torch.unbind.html#torch.unb
 line of code that will give us tensor two dimensions given a tensor of 3
 dimensions by concatenating the first and second dimension:
 #+name: unbindandcat
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   torch.cat(torch.unbind(emb, 1), 1).shape
 #+end_src
 
@@ -349,7 +349,7 @@ use. Let's begin by creating an array of elements 0-17:
 It turns out that we can quickly rerepresent this as different size and
 different dimensional tensors by calling ~view~:
 #+name: view
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   a.view(3, 3, 2)
 #+end_src
 
@@ -374,7 +374,7 @@ The reason that we can even do this is because in each tensor there is something
 called the ~storage~. The ~storage~ of a tensor is always just all of the data
 as a one dimensional vector:
 #+name: storage
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   a.storage()
 #+end_src
 
@@ -410,7 +410,7 @@ learn more about this topic there is a blog post by ezyang called
 should just know that ~view~ is an extreme efficient operation and that we can
 use that change the shape of our ~emb~:
 #+name: embview
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   emb.view(32, 6).shape
 #+end_src
 
@@ -428,7 +428,7 @@ say =-1=. When we specify =-1= we are telling pytorch to just infer the size:
 #+end_src
 
 Let's just take a peak at the shape of ~h~:
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   h.shape
 #+end_src
 
@@ -453,7 +453,7 @@ This means that our logits will be:
 
 Let's confirm the shape of our logits:
 #+name: logitsshape
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   logits.shape
 #+end_src
 
@@ -478,7 +478,7 @@ We can see the shape of prob is:
 
 We can also see that the sum of any row of probs:
 #+name: probsum
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   prob[0].sum()
 #+end_src
 
@@ -493,7 +493,7 @@ character. To do this we will be using =Y= as we set =Y= to contain our sequence
 of characters for the first 5 names in our dataset. To begin let's see what our
 current probabilities are for the characters we have in =Y=:
 #+name: untrainedprobs
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   prob[torch.arange(32), Y]
 #+end_src
 
@@ -511,7 +511,7 @@ these probabilities are based on our starting random numbers. We still can use
 ~prob~ to determine our current loss. To do this will be taking the mean of the
 log of our probabilities and negate it:
 #+name: firstloss
-#+begin_src python
+#+begin_src python :exports both 
   loss = -prob[torch.arange(32), Y].log().mean()
   loss
 #+end_src
@@ -526,7 +526,7 @@ Our current loss is currently:
 
 Now let's remake all of these variables for real. Let's first just confirm the
 shape of ~X~ and ~Y~:
-#+begin_src python :tangle no
+#+begin_src python :exports both :tangle no
   X.shape, Y.shape # dataset
 #+end_src
 
