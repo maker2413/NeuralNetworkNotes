@@ -36,4 +36,17 @@ emb.shape
 W1 = torch.randn((6, 100))
 b1 = torch.randn(100)
 
-h = emb.view(32, 6) @ W1 + b1
+h = torch.tanh(emb.view(-1, 6) @ W1 + b1)
+
+W2 = torch.randn((100, 27))
+b2 = torch.randn(27)
+
+logits = h @ W2 + b2
+
+counts = logits.exp()
+prob = counts / counts.sum(1, keepdims=True)
+
+loss = -prob[torch.arange(32), Y].log().mean()
+loss
+
+# ========================= now made respectable =========================
