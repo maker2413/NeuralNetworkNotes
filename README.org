@@ -11,5 +11,5 @@ If you are following along with the playlist linked above I would look at the
 directories in this repo in this order:
 - [[./gradients/README.org][gradients]].
 - [[./back-propagation/README.org][back propagation]].
-- [[./bigram-language-model/][bigram language model]].
-- [[./multilayer-perceptron/][multilayer perceptron]].
+- [[./bigram-language-model/README.org][bigram language model]].
+- [[./multilayer-perceptron/README.org][multilayer perceptron]].

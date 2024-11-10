@@ -1,0 +1,7 @@
+[project]
+name = "back-propagation"
+version = "0.1.0"
+description = "Studying back propagation"
+readme = "README.org"
+requires-python = ">=3.13"
+dependencies = []
