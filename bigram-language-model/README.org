@@ -15,7 +15,7 @@ This directory contains work from [[https://www.youtube.com/watch?v=PaCmpygFfXo&
 Andrej Karpathy. This directory goes through rebuilding bigram functionality of
 [[https://github.com/karpathy/makemore][makemore]].
 
-#+begin_src jupyter-python :results none :exports none
+#+begin_src python :results none :exports none
   # This file was generated from the code blocks in ./README.org.
 #+end_src
 
@@ -35,20 +35,20 @@ The goal of this project is generate unique names that are present in
 =names.txt= using a bigram language model that was trained on =names.txt=.
 
 We will begin by importing ~PyTorch~ and ~matplotlib~:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   import torch
   import matplotlib.pyplot as plt
 #+end_src
 
 Then we can begin by opening our =names.txt= file and storing all of the names
 in a variable:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   words = open('names.txt', 'r').read().splitlines()
 #+end_src
 
 Now we can see the first ten words by:
 #+name: names
-#+begin_src jupyter-python :exports both :tangle no
+#+begin_src python :exports both :tangle no
   words[:10]
 #+end_src
 
@@ -59,39 +59,33 @@ Now we can see the first ten words by:
 
 We can also view the total words, the maximum length word, and the shortest
 length word:
-#+begin_src jupyter-python :exports both :tangle no
+#+begin_src python :exports both :tangle no :results value
   len(words)
 #+end_src
 
 #+RESULTS:
-:results:
 : 32033
-:end:
 
-#+begin_src jupyter-python :exports both :tangle no
+#+begin_src python :exports both :tangle no :results value
   min(len(w) for w in words)
 #+end_src
 
 #+RESULTS:
-:results:
 : 2
-:end:
 
-#+begin_src jupyter-python :exports both :tangle no
+#+begin_src python :exports both :tangle no :results value
   max(len(w) for w in words)
 #+end_src
 
 #+RESULTS:
-:results:
 : 15
-:end:
 
 A bigram language model is only looking at the characters in dataset in
 pairs. This means that if we give our bigram language model the letter =a= it
 will give us a character that most likely follows =a= based on what it knows. To
 begin building out our bigram language model we are going to need a dictionary
 where we can keep track of the character pairs present in our dataset:
-#+begin_src jupyter-python :results none :tangle no
+#+begin_src python :results none :tangle no
   # b will be our bigram dictionary
   b = {}
 #+end_src
@@ -101,7 +95,7 @@ dictionary. We are also going to add two imaginary characters that we will use
 to dictate the beginning and end of a word for simplicity let's only look at
 the first 3 words in our dataset for now:
 #+name: firstthree
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both
   for w in words[:3]:
       # And let's add an imaginary start and end character to each of our words
       chs = ['<S>'] + list(w) + ['<E>']
@@ -117,31 +111,29 @@ the first 3 words in our dataset for now:
 We can see the starting and ending characters that we added being printed as
 pairs:
 #+RESULTS: firstthree
-:results:
 #+begin_example
-  <S> e
-  e m
-  m m
-  m a
-  a <E>
-  <S> o
-  o l
-  l i
-  i v
-  v i
-  i a
-  a <E>
-  <S> a
-  a v
-  v a
-  a <E>
+<S> e
+e m
+m m
+m a
+a <E>
+<S> o
+o l
+l i
+i v
+v i
+i a
+a <E>
+<S> a
+a v
+v a
+a <E>
 #+end_example
-:end:
 
 From here we could sort our dictionary and look at the data we collected,
 however the output is a bit too big for me to want to include it in this
 document:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   sorted(b.items(), key = lambda kv: -kv[1])
 #+end_src
 
@@ -150,59 +142,55 @@ design of =PyTorch= from here on we are simply going to leverage PyTorch to do
 the heaving lifting for us. To begin with let's create a two dimensional array
 of zeros. PyTorch has a function for this use case called [[https://pytorch.org/docs/stable/generated/torch.zeros.html][zeros]]. For instance we
 could create a =3= by =5= array of zeros like this:
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   a = torch.zeros((3, 5))
 
   a
 #+end_src
 
 #+RESULTS:
-:results:
 : tensor([[0., 0., 0., 0., 0.],
 :         [0., 0., 0., 0., 0.],
 :         [0., 0., 0., 0., 0.]])
-:end:
 
 By default PyTorch uses a float32 data type for most of it's libraries and we
 can see that by doing:
 #+name: dtype
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   a.dtype
 #+end_src
 
 #+RESULTS: dtype
-:results:
 : torch.float32
-:end:
 
-If a different datatype is required for you use case you can provide that as an
+If a different datatype is required for your use case you can provide that as an
 option to the zeros function. In our use case we have a =26= character alphabet
 with two imaginary characters added in to dictate the beginning and end of each
 word, however going forward we could just use one imaginary character to dictate
 the beginning and end of the words in our dataset. So to keep a tally of each
 character pair we would require a =27= by =27= array. We are also going to
 specify a datatype of =int32= for our array:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   N = torch.zeros((27, 27), dtype=torch.int32)
 #+end_src
 
 Before we put data into our array we have to build a lookup table that can
 convert characters into integers. To do this let's first grab each unique
 character from our dataset and store a sorted list into a =chars= variable:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   chars = sorted(list(set(''.join(words))))
 #+end_src
 
 Now we can build a lookup table that will convert characters to integers. We
-will call this ~itos~:
-#+begin_src jupyter-python :results none
+will call this ~stoi~:
+#+begin_src python :results none
   stoi = {s:i+1 for i,s in enumerate(chars)}
 #+end_src
 
 Then we can define our custom character that will denote the beginning and end
 of the words in our dataset and test the functionality of our lookup table:
 #+name: stoi
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   stoi['.'] = 0
 
   stoi['e']
@@ -210,14 +198,12 @@ of the words in our dataset and test the functionality of our lookup table:
 
 We can see that given =e= we get =5= as an output:
 #+RESULTS: stoi
-:results:
 : 5
-:end:
 
 Let's also build out an inverse lookup table ie: converts integers back to
 characters. We will call this one ~itos~, and we can test it's functionality:
 #+name: itos
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   itos = {i:s for s,i in stoi.items()}
 
   itos[5]
@@ -225,13 +211,11 @@ characters. We will call this one ~itos~, and we can test it's functionality:
 
 We can see that given =5= ~itos~ returns =e=:
 #+RESULTS: itos
-:results:
 : e
-:end:
 
 Now we can use ~stoi~ to populate our array ~N~ using a similar for loop as we
 did before:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   for w in words:
       chs = ['.'] + list(w) + ['.']
       for ch1, ch2 in zip(chs, chs[1:]):
@@ -246,7 +230,7 @@ Now we could print out N to see what we have collected, but the output is
 arguably quite ugly so we are going to use matplotlib to create a table that
 better represents the data in N:
 #+name: probabilites
-#+begin_src jupyter-python :file images/probabilities.png :exports both
+#+begin_src python :file images/probabilities.png :exports both :results value
   # This block of code will print ever character pair and the number of times it
   # occurs. It will also shade each tile dark the more a pair appears.
   plt.figure(figsize=(16,16))
@@ -260,14 +244,12 @@ better represents the data in N:
 #+end_src
 
 #+RESULTS: probabilites
-:results:
 | -0.5 | 26.5 | 26.5 | -0.5 |
 [[file:images/probabilities.png]]
-:end:
 
 Now we can use ~N~ to build a probability for each character pair. To prove
 this let's look at the first row of ~N~:
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   p = N[0].float()
   p = p / p.sum()
 
@@ -275,22 +257,18 @@ this let's look at the first row of ~N~:
 #+end_src
 
 #+RESULTS:
-:results:
 : tensor([0.0000, 0.1377, 0.0408, 0.0481, 0.0528, 0.0478, 0.0130, 0.0209, 0.0273,
 :         0.0184, 0.0756, 0.0925, 0.0491, 0.0792, 0.0358, 0.0123, 0.0161, 0.0029,
 :         0.0512, 0.0642, 0.0408, 0.0024, 0.0117, 0.0096, 0.0042, 0.0167, 0.0290])
-:end:
 
 And now that we have built out probabilities for the first row the sum of ~p~
 should equal to =1= to prove that we have a proper probability distribution:
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   p.sum()
 #+end_src
 
 #+RESULTS:
-:results:
 : tensor(1.)
-:end:
 
 Now we can sample from this distribution. To sample from this distribution we
 are going to [[https://pytorch.org/docs/stable/generated/torch.multinomial.html][torch.multinomial]]. Torch's multinomial function allows us to sample
@@ -300,7 +278,7 @@ this allows us to put a value back into the list of usable indices to draw
 again. We are also going to be using a [[https://pytorch.org/docs/stable/generated/torch.Generator.html][generator]] object with a set seed so that
 we can get the same results over and over during development:
 #+name: sampling
-#+begin_src jupyter-python 
+#+begin_src python :exports both :results value
   g = torch.Generator().manual_seed(2147483647)
   ix = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
 
@@ -310,9 +288,7 @@ we can get the same results over and over during development:
 We can see that every time we evaluate the above code block we are given =j= as
 a result. This is because we set a ~manual_seed~ on our generator:
 #+RESULTS: sampling
-:results:
 : j
-:end:
 
 Now that we have proved that we can pull characters out we can then loop through
 our array to pull out a series of characters. To do this let's reinitialize our
@@ -320,7 +296,7 @@ generator so that we can get the same results every we run our loop. We will
 then have a ~while~ loop that gets the probability for each row as we loop
 through using ~ix~ and then draws a sample from the row using the probability:
 #+name: sampling2
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both
   g = torch.Generator().manual_seed(2147483647)
 
   out = []
@@ -338,18 +314,16 @@ through using ~ix~ and then draws a sample from the row using the probability:
 
 And the first name we get is ~junide~:
 #+RESULTS: sampling2
-:results:
 : junide.
-:end:
 
-Yes, that name sort of sucks, but that is due to fault in our code that is more
-to do with that the fact that bigram language models sort of just suck as they
-have no context of language outside of what character they currently have and
-what character may come next. We can prove that this is actually doing something
-though as we if we tweak our ~while~ loop to always assign uniform probabilities
-to everything we can see that we will get worse results:
+Yes, that name sort of sucks, but that isn't due to fault in our code that is
+more to do with that the fact that bigram language models sort of just suck as
+they have no context of language outside of what character they currently have
+and what character may come next. We can prove that this is actually doing
+something though as we tweak our ~while~ loop to always assign uniform
+probabilities to everything we can see that we will get worse results:
 #+name: sampling3
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both
   g = torch.Generator().manual_seed(2147483647)
 
   out = []
@@ -368,9 +342,7 @@ to everything we can see that we will get worse results:
 I don't know about you, but I think ~juwjdvdipkcqaz~ is a much worse name than
 ~junide~:
 #+RESULTS: sampling3
-:results:
 : juwjdvdipkcqaz.
-:end:
 
 So now that we have proved we are actually generating names, albeit not great
 ones. We can make our loop a little more efficient by making a matrix for our
@@ -381,48 +353,42 @@ dimensions are summed together) and ~keepdim~ allows us to tell ~sum~ to return
 the same dimension structure. Before we build out our probability matrix let's
 look into this a little deeper as this can be a complicated topic:
 #+name: pshape
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   P = N.float()
   P.shape
 #+end_src
 
 So we can see that currently =P= is a =27= by =27= matrix:
 #+RESULTS: pshape
-:results:
 : torch.Size([27, 27])
-:end:
 
 If we however ~sum~ =P= on it's zeroth dimension with ~keepdim~ set to =True=:
 #+name: pshape2
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   P.sum(0, keepdim=True).shape
 #+end_src
 
 We can see that we now have a =1= by =27= matrix. This means that we have now
 summed all the values in each column:
 #+RESULTS: pshape2
-:results:
 : torch.Size([1, 27])
-:end:
 
 If we run the same command, but remove ~keepdim~:
 #+name: pshape3
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   P.sum(0).shape
 #+end_src
 
 We can now see that the first dimension gets squeezed out by the sum function
 and we are just left with a size =27= matrix with the sums of our columns:
 #+RESULTS: pshape3
-:results:
 : torch.Size([27])
-:end:
 
 Now we don't actually want a sum of our columns we want a sum of our rows so we
 are going to sum on dimension =1= with ~keepdim~ set to =True= so that we get a
 =27= by =1= matrix:
 #+name: pshape4
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   P.sum(1, keepdim=True).shape
 #+end_src
 
@@ -431,9 +397,7 @@ is because we are going to be dividing =P= by our ~sum~ of =P= and to do this we
 need to abide by PyTorch's [[https://pytorch.org/docs/stable/notes/broadcasting.html][broadcasting]] rules. If we do not abide by these rules
 we can not perform matrix math on our two matrices:
 #+RESULTS: pshape4
-:results:
 : torch.Size([27, 1])
-:end:
 
 Broadcasting rules can be a complicated topic when doing matrix math, but in
 general the rules are as follows:
@@ -443,9 +407,9 @@ general the rules are as follows:
   does not exist.
 
 In our case we can check to see that our two matrices: =P= and
-~P.sum(1, keepdim=True)~ can be divide by writing our the shape of our matrices
+~P.sum(1, keepdim=True)~ can be divide by writing out the shape of our matrices
 and going from *right to left* check that each dimension abides by these rules:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   # 27, 27
   # 27, 1
 #+end_src
@@ -461,24 +425,22 @@ the right would not exist, which is the third use case of the second
 rule. Although this is true if we actually implemented it this way and checked
 to see if our probabilities matrix is normalized we would see that it is not:
 #+name: probabilitymatrixcheck
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   P = N.float()
   P = P / P.sum(1)
 
   P[0].sum()
 #+end_src
 
-This happens because torch will actually sum consider our =27= matrix and sum it
-up as if it were a =1= by =27= matrix, which gives an unnormalized probability
+This happens because torch will actually consider our =27= matrix and sum it up
+as if it were a =1= by =27= matrix, which gives an unnormalized probability
 matrix:
 #+RESULTS: probabilitymatrixcheck
-:results:
 : tensor(7.0225)
-:end:
 
 This happens because it first compares the *right most dimensions first*, which
 in this case would =27= for our first matrix and =27= for our second matrix:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   # 27, 27
   #     27
 #+end_src
@@ -487,32 +449,30 @@ It then compares the next dimensions which in this case is =27= and nothing so
 it will actually silently create a dimension to sum the =27= values to.
 
 With all of that out of the way let's build our probability matrix:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   P = N.float()
   P = P / P.sum(1, keepdim=True)
 #+end_src
 
-We can now confirm that our probability matrix is normalized by check the sum of
-one of it's rows:
+We can now confirm that our probability matrix is normalized by checking the sum
+of one of it's rows:
 #+name: probabilitymatrixcheck2
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   P[0].sum()
 #+end_src
 
 We can see that the sum of this row is equal to =1=:
 #+RESULTS: probabilitymatrixcheck2
-:results:
 : tensor(1.)
-:end:
 
-#+begin_src jupyter-python :exports none :results none
+#+begin_src python :exports none :results none
   print("Results without neural network:")
 #+end_src
 
 Now we can implement our probability matrix into our above loop and this
 time let's also create 10 names:
 #+name: sampling4
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   g = torch.Generator().manual_seed(2147483647)
 
   for i in range(10):
@@ -530,18 +490,18 @@ time let's also create 10 names:
 
 We can see that we got the same first result as well as 9 other new names:
 #+RESULTS: sampling4
-:results:
-: junide.
-: janasah.
-: p.
-: cony.
-: a.
-: nn.
-: kohin.
-: tolian.
-: juee.
-: ksahnaauranilevias.
-:end:
+#+begin_example
+junide.
+janasah.
+p.
+cony.
+a.
+nn.
+kohin.
+tolian.
+juee.
+ksahnaauranilevias.
+#+end_example
 
 We have now successfully "trained" a bigram language model that does produce
 results, albeit not great results. Now let's try to evaluate the quality of this
@@ -549,7 +509,7 @@ model using loss like we did in the previous section. To begin doing this let's
 look at the probabilities we have assigned to every bigram in the first 3 words
 in our dataset:
 #+name: firstthreeprobs
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both
   for w in words[:3]:
       chs = ['.'] + list(w) + ['.']
       for ch1, ch2 in zip(chs, chs[1:]):
@@ -562,43 +522,42 @@ in our dataset:
 So here we can see the percentage that each of these bigrams has been assigned
 in the dataset:
 #+RESULTS: firstthreeprobs
-:results:
 #+begin_example
-  .e: 0.0478
-  em: 0.0377
-  mm: 0.0253
-  ma: 0.3899
-  a.: 0.1960
-  .o: 0.0123
-  ol: 0.0780
-  li: 0.1777
-  iv: 0.0152
-  vi: 0.3541
-  ia: 0.1381
-  a.: 0.1960
-  .a: 0.1377
-  av: 0.0246
-  va: 0.2495
-  a.: 0.1960
+.e: 0.0478
+em: 0.0377
+mm: 0.0253
+ma: 0.3899
+a.: 0.1960
+.o: 0.0123
+ol: 0.0780
+li: 0.1777
+iv: 0.0152
+vi: 0.3541
+ia: 0.1381
+a.: 0.1960
+.a: 0.1377
+av: 0.0246
+va: 0.2495
+a.: 0.1960
 #+end_example
-:end:
 
-If everything were to be equal likely, ie: ~1/27~ we would expect everything to
-be about ~3.8%~. So anything above ~3.8%~ means that we have learned something
-useful from these bigram statistics. So now we would like to think of way to
-summarize these probabilities into a single number for =loss= like we did in the
-previous section. If we take a look at the [[https://en.wikipedia.org/wiki/Maximum_likelihood_estimation][maximum likelihood exstimation]] we can
-see that what is typically used here is the "likelihood". The likelihood is the
-product of all our probabilities and it is really telling us the likelihood of
-the entire dataset assigned by the model we trained. In our case because the
-probabilities of all of these bigram pairs is some small number between =0= and
-=1= the product of all of these probabilities is going to be some very small
-number. In cases like this instead of working with the likelihood people often
-opt to work with the [[https://www.statlect.com/glossary/log-likelihood][log-likelihood]]. To get the log-likelihood we just have to
-take the log of the probability. We also want to track how many total character
-pairs there are so that later we can normalize our log-likelihood:
+If everything were to be equally likely, ie: ~1/27~ we would expect everything
+to be about ~3.8%~. So anything above ~3.8%~ means that we have learned
+something useful from these bigram statistics. So now we would like to think of
+way to summarize these probabilities into a single number for =loss= like we did
+in the previous section. If we take a look at the [[https://en.wikipedia.org/wiki/Maximum_likelihood_estimation][maximum likelihood estimation]]
+we can see that what is typically used here is the "likelihood". The likelihood
+is the product of all our probabilities and it is really telling us the
+likelihood of the entire dataset assigned by the model we trained. In our case
+because the probabilities of all of these bigram pairs is some small number
+between =0= and =1= the product of all of these probabilities is going to be
+some very small number. In cases like this instead of working with the
+likelihood people often opt to work with the [[https://www.statlect.com/glossary/log-likelihood][log-likelihood]]. To get the
+log-likelihood we just have to take the log of the probability. We also want to
+track how many total character pairs there are so that later we can normalize
+our log-likelihood:
 #+name: firstthreeprobs2
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both
   log_likelihood = 0.0
   n = 0
 
@@ -618,42 +577,38 @@ So we can see that now when we have a character pair with a higher probability
 our ~logprob~ is closer to =0=, whereas if we have something with a low
 probability we have a more negative number:
 #+RESULTS: firstthreeprobs2
-:results:
 #+begin_example
-  .e: 0.0478 -3.0408
-  em: 0.0377 -3.2793
-  mm: 0.0253 -3.6772
-  ma: 0.3899 -0.9418
-  a.: 0.1960 -1.6299
-  .o: 0.0123 -4.3982
-  ol: 0.0780 -2.5508
-  li: 0.1777 -1.7278
-  iv: 0.0152 -4.1867
-  vi: 0.3541 -1.0383
-  ia: 0.1381 -1.9796
-  a.: 0.1960 -1.6299
-  .a: 0.1377 -1.9829
-  av: 0.0246 -3.7045
-  va: 0.2495 -1.3882
-  a.: 0.1960 -1.6299
+.e: 0.0478 -3.0408
+em: 0.0377 -3.2793
+mm: 0.0253 -3.6772
+ma: 0.3899 -0.9418
+a.: 0.1960 -1.6299
+.o: 0.0123 -4.3982
+ol: 0.0780 -2.5508
+li: 0.1777 -1.7278
+iv: 0.0152 -4.1867
+vi: 0.3541 -1.0383
+ia: 0.1381 -1.9796
+a.: 0.1960 -1.6299
+.a: 0.1377 -1.9829
+av: 0.0246 -3.7045
+va: 0.2495 -1.3882
+a.: 0.1960 -1.6299
 #+end_example
-:end:
 
 Now we can normalize our log-likelihood to get a "loss" value. We can also
 negate this value to get a positive number to work with:
 #+name: loss
-#+begin_src jupyter-python :tangle no
+#+begin_src python :tangle no
   nll = -log_likelihood
   print(f'{nll/n}')
 #+end_src
 
 Now we have a loss value for our current model like we did with the
-[[../back-propagation][back propagation]] section of this repository. Just like before the lower our
+[[../back-propagation/README.org][back propagation]] section of this repository. Just like before the lower our
 loss is the the better our model is trained:
 #+RESULTS: loss
-:results:
 : 2.424102306365967
-:end:
 
 In summary our over goal is:
 - To maximize likelihood of the data w, r, t, model parameters (statistical
@@ -665,7 +620,7 @@ In summary our over goal is:
 On a side note we can also actually use the above code block to check the
 likelihood of an specific name like this:
 #+name: nametest
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both
   log_likelihood = 0.0
   n = 0
 
@@ -685,14 +640,12 @@ likelihood of an specific name like this:
 
 So the likelihood of ~maker~ being generated is sort of uncommon:
 #+RESULTS: nametest
-:results:
 : 2.310086965560913
-:end:
 
 The reason I am brining this up is if we look at a more obscure name like
 ~makq~:
 #+name: nametest2
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both
   log_likelihood = 0.0
   n = 0
 
@@ -714,13 +667,11 @@ We see that we get ~inf~ because ~kq~ never occurs in our dataset and therefore
 has a probability of =0= which turns into infinity when run through a log
 function:
 #+RESULTS: nametest2
-:results:
 : inf
-:end:
 
 To avoid this we can perform [[https://openreview.net/forum?id=H1VyHY9gg][data smoothing]] on our probabilities by adding some
 imaginary number to our probability matrix:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   P = (N+1).float()
   P = P / P.sum(1, keepdim=True)
 #+end_src
@@ -732,7 +683,7 @@ of =1= to it's original value.
 So now with all of that out of the way, instead of building a loss value for the
 first three words let's build a loss for the entire dataset:
 #+name: loss2
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   log_likelihood = 0.0
   n = 0
 
@@ -753,9 +704,7 @@ first three words let's build a loss for the entire dataset:
 
 So we can see that we currently have a loss of about =2.4544=:
 #+RESULTS: loss2
-:results:
 : Current loss: tensor(2.4544)
-:end:
 
 So now we have successfully built a bigram language model. For the next part of
 this let's build out a neural network bigram language model, which truth be told
@@ -764,7 +713,7 @@ bigram language model due to the limiting power of a bigram language model.
 
 To begin this effort let's create a training set of bigrams. For now let's just
 take the first word in our dataset (=emma=):
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   xs, ys = [], []
 
   for w in words[:1]:
@@ -783,7 +732,7 @@ understand but this: [[https://stackoverflow.com/a/63116398][stack overflow post
 documentation. The short answer is that ~tensor~ uses a datatype of =int64=
 while ~Tensor~ uses a datatype of =float32=.
 #+name: xsys
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   xs = torch.tensor(xs)
   ys = torch.tensor(ys)
 
@@ -793,10 +742,8 @@ while ~Tensor~ uses a datatype of =float32=.
 
 Here we can see what is in ~xs~ and ~ys~:
 #+RESULTS: xsys
-:results:
 : tensor([ 0,  5, 13, 13,  1])
 : tensor([ 5, 13, 13,  1,  0])
-:end:
 
 In the previous section of this repository we built out a neural network were we
 had input integers and sent them through neurons with weights and values to get
@@ -810,121 +757,109 @@ except for the 13th dimension which turns to =1= and then that vector can be fed
 into a neural net.
 
 So let's import ~torch.nn.functional~ so we can use one hot encoding:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   import torch.nn.functional as F
 #+end_src
 
-Let's then us one hot to encode our tensors. There is a special property to one
+Let's then use one hot to encode our tensors. There is a special property to one
 hot called ~num_classes~ that allow us to specify how many number classes we are
 working with (=27= in our case). By default it will try to guess this number,
 but with our above tensors it may think we only have =13= as that is our biggest
 number:
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   xenc = F.one_hot(xs, num_classes=27)
   xenc
 #+end_src
 
 #+RESULTS:
-:results:
-: tensor([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-:          0, 0, 0],
-:         [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-:          0, 0, 0],
-:         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-:          0, 0, 0],
-:         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-:          0, 0, 0],
-:         [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-:          0, 0, 0]])
-:end:
+#+begin_example
+tensor([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0]])
+#+end_example
 
-One other than to think about however is the data type of ~xenc~. When plugging
+One other thing to think about however is the data type of ~xenc~. When plugging
 numbers in to neural networks we want them to be floating point numbers, not
 integers:
 #+name: xencdtype
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   xenc.dtype
 #+end_src
 
 So we can see that we actually have a dtype of ~int64~, *not* a ~float32~ like
 we want:
 #+RESULTS: xencdtype
-:results:
 : torch.int64
-:end:
 
 The reason for this is that one_hot was passed in a dtype of ~int64~ (~xs~). If
 we look at the one_hot documentation we can see that we can't actually specify
 what dtype we want to be returned so we would instead have to cast our output to
 ~.float()~:
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   xenc = F.one_hot(xs, num_classes=27).float()
   xenc.dtype
 #+end_src
 
 #+RESULTS:
-:results:
 : torch.float32
-:end:
 
 We can see that one hot set the Nth dimension to one for each of the numbers our
 tensors ~xs~ contained. If we take a look at the shape of ~xenc~ we would expect
-it to =5= by =27=:
-#+begin_src jupyter-python :tangle no :exports both
+it to be =5= by =27=:
+#+begin_src python :tangle no :exports both :results value
   xenc.shape
 #+end_src
 
 #+RESULTS:
-:results:
 : torch.Size([5, 27])
-:end:
 
 We can also visualize this with ~plt~ to make it a little more clear:
-#+begin_src jupyter-python :tangle no :exports both :file images/xenc.png
+#+begin_src python :tangle no :exports both :results value file :file images/xenc.png
   plt.imshow(xenc)
 #+end_src
 
 #+RESULTS:
-:results:
-: <matplotlib.image.AxesImage at 0x7f90e244c150>
-#+attr_org: :width 752
 [[file:images/xenc.png]]
-:end:
 
-So now that we have input data for our neural network we can begin to out the
+So now that we have input data for our neural network we can begin to set the
 weights and biases of our neurons like we did the previous section of this
 repository. Let's do this by utilizing [[https://pytorch.org/docs/stable/generated/torch.randn.html][torch.randn]]. The ~randn~ function returns
 a tensor with random numbers drawn from a [[https://www.investopedia.com/terms/n/normaldistribution.asp][normal distribution]]. We also need to
 provide a size for our tensor so let's just use =27= by =1= for now to
 represent a single neuron with =27= possible input values:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   W = torch.randn((27, 1))
 #+end_src
 
-We can then multiple ~W~ by ~xenc~ using the matrix multiplication operator:
-[[https://alysivji.github.io/python-matrix-multiplication-operator.html][@]]. This operator will in parallel activate each of our =5= inputs on our single
-neuron. Remember that when we say "activate" we are referring to ~x*w~ in our
-neuron model that was covered in the previous section:
+We can then have multiple ~W~ by ~xenc~ using the matrix multiplication
+operator: [[https://alysivji.github.io/python-matrix-multiplication-operator.html][@]]. This operator will in parallel activate each of our =5= inputs on
+our single neuron. Remember that when we say "activate" we are referring to
+~x*w~ in our neuron model that was covered in the previous section:
 #+name: xencw
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   xenc @ W
 #+end_src
 
 We can see that our matrix multiplication has returned a tensor of =5= by =1=
 because we have activated our 5 inputs:
 #+RESULTS: xencw
-:results:
-: tensor([[-0.5685],
-:         [-0.4636],
-:         [-0.4334],
-:         [-0.4334],
-:         [ 1.3188]])
-:end:
+: tensor([[-1.4534],
+:         [ 0.4900],
+:         [-0.2800],
+:         [-0.2800],
+:         [-2.4956]])
 
 Now instead of having just one neuron in our network let's recreate ~W~ to be
 =27= neurons. We cover why we want =27= later on:
 #+name: xencw2
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   W = torch.randn((27, 27))
   xenc @ W
 #+end_src
@@ -932,47 +867,43 @@ Now instead of having just one neuron in our network let's recreate ~W~ to be
 This will in parallel evaluate all the =27= neurons on our =5= inputs, giving us
 a much bigger result:
 #+RESULTS: xencw2
-:results:
 #+begin_example
-  tensor([[-0.3176, -0.3969, -0.5179, -0.5690, -0.6374,  0.0256, -2.0905,  0.7166,
-            0.8602,  1.9340, -0.3004,  0.2498,  1.3983,  0.0337,  0.9274, -0.5246,
-           -0.5196,  0.5026, -0.5154,  0.9855,  0.4592, -0.6150, -0.3049,  0.6426,
-            0.7845,  1.8725, -0.8785],
-          [ 2.1037,  0.5310, -0.6537, -0.7355,  1.4842,  2.8865,  0.4043,  0.5741,
-           -1.7164, -0.3542, -1.6375, -1.9823, -2.2057,  1.5329,  1.3813, -0.4575,
-            1.3740, -0.4649, -1.2583, -0.9677,  0.5032,  0.1729,  0.7966,  0.3736,
-            0.6249,  0.9365,  0.2194],
-          [ 0.0292,  0.8641, -0.1044, -1.6765,  0.4483,  0.0848,  1.4230, -0.3489,
-            0.8284,  0.4456,  1.1658,  0.3111,  0.3801, -1.0848,  0.3067, -1.0323,
-            1.3435,  0.0301,  1.2279,  1.0916, -0.2236,  0.3761, -0.5149,  0.5503,
-           -0.7496,  0.1728,  1.9248],
-          [ 0.0292,  0.8641, -0.1044, -1.6765,  0.4483,  0.0848,  1.4230, -0.3489,
-            0.8284,  0.4456,  1.1658,  0.3111,  0.3801, -1.0848,  0.3067, -1.0323,
-            1.3435,  0.0301,  1.2279,  1.0916, -0.2236,  0.3761, -0.5149,  0.5503,
-           -0.7496,  0.1728,  1.9248],
-          [-0.3279,  0.2180, -0.0951,  0.9748, -1.6577,  0.6432, -0.8928,  1.2946,
-            0.1068, -2.0269, -0.7128,  1.0922, -0.9755, -1.9971, -0.0281,  1.5353,
-            0.1827,  0.0751, -0.5423, -1.4294,  0.1743,  0.9507,  1.4548,  1.1302,
-           -0.2301, -0.3781, -2.0365]])
+tensor([[-0.3714, -0.6360, -0.5160, -0.5066, -0.0827,  0.3439,  0.0430, -0.2837,
+          0.1246,  0.1486,  0.7355,  0.0992,  0.2587,  1.1614, -0.2423,  0.5727,
+         -0.7140, -1.2471, -0.7604,  0.4558, -0.2206, -1.8572,  1.3681, -0.9713,
+         -0.5975, -1.5546,  1.3946],
+        [-1.6648,  0.6780,  0.1642, -1.1363, -0.7636, -0.0100, -0.4115, -0.9108,
+          1.3134, -0.0191, -0.2075,  0.1481, -1.2492, -1.6624,  0.7994, -1.0203,
+         -0.7749, -0.5958, -0.2781,  1.4186, -1.7066,  0.3546, -1.5813, -0.8131,
+         -0.4274, -0.9355, -1.7151],
+        [-0.2054, -0.2118, -1.6106,  0.9981, -0.0294, -0.6456, -0.3824, -1.3606,
+          0.4206, -0.5210,  2.2284, -0.5678,  0.7534, -0.3037, -1.3881, -2.8213,
+         -1.3663, -0.1462,  1.4043,  0.5314, -0.3762,  2.2205,  1.5380, -0.5507,
+         -0.9361, -0.2398,  0.3863],
+        [-0.2054, -0.2118, -1.6106,  0.9981, -0.0294, -0.6456, -0.3824, -1.3606,
+          0.4206, -0.5210,  2.2284, -0.5678,  0.7534, -0.3037, -1.3881, -2.8213,
+         -1.3663, -0.1462,  1.4043,  0.5314, -0.3762,  2.2205,  1.5380, -0.5507,
+         -0.9361, -0.2398,  0.3863],
+        [ 0.3621,  1.1049, -0.3022,  0.4106,  0.4890, -0.0483, -1.2412, -0.9741,
+         -0.3792, -1.1023, -0.9178, -1.1238, -1.6041,  1.7756, -0.5222, -0.8994,
+          0.0795,  0.1935,  0.0422,  0.3657, -0.9239,  0.1540, -0.2030, -1.5927,
+         -1.2796, -0.0079, -0.6821]])
 #+end_example
-:end:
 
 Now if we look at one of these elements:
 #+name: activationtest
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   (xenc @ W)[3, 13]
 #+end_src
 
 We can see we get the following value:
 #+RESULTS: activationtest
-:results:
-: tensor(-1.0848)
-:end:
+: tensor(-0.3037)
 
 To prove that this has been activated let's run through the ~x*w~ formula
 manually to see if we the same result:
 #+name: activationtest2
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   (xenc[3] * W[:, 13]).sum()
 #+end_src
 
@@ -981,9 +912,7 @@ answer in the 13th dimension. The sum function will sum all of the dimensions,
 which all other dimensions are zero in this case, and return the sum. So we can
 see that we get the same result:
 #+RESULTS: activationtest2
-:results:
-: tensor(-1.0848)
-:end:
+: tensor(-0.3037)
 
 Now ultimately we want to build out a probability matrix like we did previously,
 however our neural network is giving us these positive and negative floating
@@ -997,7 +926,7 @@ that are greater than zero (positive numbers) you get numbers that grow all the
 way to infinity. To begin let's use our matrix multiplication before, but this
 time let's store it in a variable called ~logits~ (log counts) and let's store
 its exponentiated values in a variable just called ~counts~:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   # logits = log counts
   logits = xenc @ W # (5, 27) @ (27, 27) -> (5, 27)
   counts = logits.exp()
@@ -1005,20 +934,18 @@ its exponentiated values in a variable just called ~counts~:
 
 Counts at this point is equivalent in concept to what the ~N~ matrix was
 previous. Now we can build out our probabilities by normalizing our counts:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   # probabilities for next character
   probs = counts / counts.sum(1, keepdims=True)
 #+end_src
 
 Just like before now every row of our probabilities will sum to one:
-#+begin_src jupyter-python :tangle no :exports both
+#+begin_src python :tangle no :exports both :results value
   probs[0].sum()
 #+end_src
 
 #+RESULTS:
-:results:
 : tensor(1.)
-:end:
 
 So now that we have a probabilities matrix that was built by providing the one
 hot encoding of our input data and multiplied by randomly generated weights to
@@ -1030,17 +957,17 @@ further though let's summarize where we are at currently:
 We randomly initialized 27 neurons' weights. Each neuron will receive 27
 inputs. Let's also use a generator at this point so we can expect the same
 results each run:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   g = torch.Generator().manual_seed(2147483647)
   W = torch.randn((27, 27), generator=g)
 #+end_src
 
 We then encode all of our inputs using one hot encoding and casting to a float
-giving us an matrix of =5= by =27=. We then multiply this in the first layer of
+giving us a matrix of =5= by =27=. We then multiply this in the first layer of
 a neural network to get our log-counts. We then exponentiate this log-counts in
 order to fake counts and finally we normalize these counts to get fake
 probabilities:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   xenc = F.one_hot(xs, num_classes=27).float() # input to the net: one-hot encoding
   logits = xenc @ W # predict log-counts
   counts = logits.exp() # counts is equivalent to N
@@ -1056,7 +983,7 @@ them. You can think of this as a normalize layer.
 
 Let's now iterate through the first word in our dataset and sort of break down
 these examples:
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   nlls = torch.zeros(5)
   for i in range(5):
       # i-th bigram:
@@ -1080,68 +1007,66 @@ these examples:
 #+end_src
 
 #+RESULTS:
-:results:
 #+begin_example
-  ----------
-  bigram example 1: .e (indexes 0,5)
-  input to the neural net: 0
-  output probabilities from the neural net: tensor([0.0607, 0.0100, 0.0123, 0.0042, 0.0168, 0.0123, 0.0027, 0.0232, 0.0137,
-          0.0313, 0.0079, 0.0278, 0.0091, 0.0082, 0.0500, 0.2378, 0.0603, 0.0025,
-          0.0249, 0.0055, 0.0339, 0.0109, 0.0029, 0.0198, 0.0118, 0.1537, 0.1459])
-  label (actual next character): 5
-  probability assigned by the net to the correct character: 0.01228625513613224
-  log likelihood: -4.399273872375488
-  negative log likelihood: 4.399273872375488
-  ----------
-  bigram example 2: em (indexes 5,13)
-  input to the neural net: 5
-  output probabilities from the neural net: tensor([0.0290, 0.0796, 0.0248, 0.0521, 0.1989, 0.0289, 0.0094, 0.0335, 0.0097,
-          0.0301, 0.0702, 0.0228, 0.0115, 0.0181, 0.0108, 0.0315, 0.0291, 0.0045,
-          0.0916, 0.0215, 0.0486, 0.0300, 0.0501, 0.0027, 0.0118, 0.0022, 0.0472])
-  label (actual next character): 13
-  probability assigned by the net to the correct character: 0.018050700426101685
-  log likelihood: -4.014570713043213
-  negative log likelihood: 4.014570713043213
-  ----------
-  bigram example 3: mm (indexes 13,13)
-  input to the neural net: 13
-  output probabilities from the neural net: tensor([0.0312, 0.0737, 0.0484, 0.0333, 0.0674, 0.0200, 0.0263, 0.0249, 0.1226,
-          0.0164, 0.0075, 0.0789, 0.0131, 0.0267, 0.0147, 0.0112, 0.0585, 0.0121,
-          0.0650, 0.0058, 0.0208, 0.0078, 0.0133, 0.0203, 0.1204, 0.0469, 0.0126])
-  label (actual next character): 13
-  probability assigned by the net to the correct character: 0.026691533625125885
-  log likelihood: -3.623408794403076
-  negative log likelihood: 3.623408794403076
-  ----------
-  bigram example 4: ma (indexes 13,1)
-  input to the neural net: 13
-  output probabilities from the neural net: tensor([0.0312, 0.0737, 0.0484, 0.0333, 0.0674, 0.0200, 0.0263, 0.0249, 0.1226,
-          0.0164, 0.0075, 0.0789, 0.0131, 0.0267, 0.0147, 0.0112, 0.0585, 0.0121,
-          0.0650, 0.0058, 0.0208, 0.0078, 0.0133, 0.0203, 0.1204, 0.0469, 0.0126])
-  label (actual next character): 1
-  probability assigned by the net to the correct character: 0.07367686182260513
-  log likelihood: -2.6080665588378906
-  negative log likelihood: 2.6080665588378906
-  ----------
-  bigram example 5: a. (indexes 1,0)
-  input to the neural net: 1
-  output probabilities from the neural net: tensor([0.0150, 0.0086, 0.0396, 0.0100, 0.0606, 0.0308, 0.1084, 0.0131, 0.0125,
-          0.0048, 0.1024, 0.0086, 0.0988, 0.0112, 0.0232, 0.0207, 0.0408, 0.0078,
-          0.0899, 0.0531, 0.0463, 0.0309, 0.0051, 0.0329, 0.0654, 0.0503, 0.0091])
-  label (actual next character): 0
-  probability assigned by the net to the correct character: 0.014977526850998402
-  log likelihood: -4.201204299926758
-  negative log likelihood: 4.201204299926758
-  =========
-  average negative log likelihood, i.e. loss = 3.7693049907684326
+----------
+bigram example 1: .e (indexes 0,5)
+input to the neural net: 0
+output probabilities from the neural net: tensor([0.0607, 0.0100, 0.0123, 0.0042, 0.0168, 0.0123, 0.0027, 0.0232, 0.0137,
+        0.0313, 0.0079, 0.0278, 0.0091, 0.0082, 0.0500, 0.2378, 0.0603, 0.0025,
+        0.0249, 0.0055, 0.0339, 0.0109, 0.0029, 0.0198, 0.0118, 0.1537, 0.1459])
+label (actual next character): 5
+probability assigned by the net to the correct character: 0.01228625513613224
+log likelihood: -4.399273872375488
+negative log likelihood: 4.399273872375488
+----------
+bigram example 2: em (indexes 5,13)
+input to the neural net: 5
+output probabilities from the neural net: tensor([0.0290, 0.0796, 0.0248, 0.0521, 0.1989, 0.0289, 0.0094, 0.0335, 0.0097,
+        0.0301, 0.0702, 0.0228, 0.0115, 0.0181, 0.0108, 0.0315, 0.0291, 0.0045,
+        0.0916, 0.0215, 0.0486, 0.0300, 0.0501, 0.0027, 0.0118, 0.0022, 0.0472])
+label (actual next character): 13
+probability assigned by the net to the correct character: 0.018050700426101685
+log likelihood: -4.014570713043213
+negative log likelihood: 4.014570713043213
+----------
+bigram example 3: mm (indexes 13,13)
+input to the neural net: 13
+output probabilities from the neural net: tensor([0.0312, 0.0737, 0.0484, 0.0333, 0.0674, 0.0200, 0.0263, 0.0249, 0.1226,
+        0.0164, 0.0075, 0.0789, 0.0131, 0.0267, 0.0147, 0.0112, 0.0585, 0.0121,
+        0.0650, 0.0058, 0.0208, 0.0078, 0.0133, 0.0203, 0.1204, 0.0469, 0.0126])
+label (actual next character): 13
+probability assigned by the net to the correct character: 0.026691533625125885
+log likelihood: -3.623408794403076
+negative log likelihood: 3.623408794403076
+----------
+bigram example 4: ma (indexes 13,1)
+input to the neural net: 13
+output probabilities from the neural net: tensor([0.0312, 0.0737, 0.0484, 0.0333, 0.0674, 0.0200, 0.0263, 0.0249, 0.1226,
+        0.0164, 0.0075, 0.0789, 0.0131, 0.0267, 0.0147, 0.0112, 0.0585, 0.0121,
+        0.0650, 0.0058, 0.0208, 0.0078, 0.0133, 0.0203, 0.1204, 0.0469, 0.0126])
+label (actual next character): 1
+probability assigned by the net to the correct character: 0.07367686182260513
+log likelihood: -2.6080665588378906
+negative log likelihood: 2.6080665588378906
+----------
+bigram example 5: a. (indexes 1,0)
+input to the neural net: 1
+output probabilities from the neural net: tensor([0.0150, 0.0086, 0.0396, 0.0100, 0.0606, 0.0308, 0.1084, 0.0131, 0.0125,
+        0.0048, 0.1024, 0.0086, 0.0988, 0.0112, 0.0232, 0.0207, 0.0408, 0.0078,
+        0.0899, 0.0531, 0.0463, 0.0309, 0.0051, 0.0329, 0.0654, 0.0503, 0.0091])
+label (actual next character): 0
+probability assigned by the net to the correct character: 0.014977526850998402
+log likelihood: -4.201204299926758
+negative log likelihood: 4.201204299926758
+=========
+average negative log likelihood, i.e. loss = 3.7693049907684326
 #+end_example
-:end:
 
 We see that we have a loss of 3.769304... on our current seed. Before we move
 away from our set seed lets optimize our neural network to reduce our
 loss. We will also keep track of the total number of elements in our ~xs~ by
 using [[https://pytorch.org/docs/stable/generated/torch.Tensor.nelement.html][nelement]] and storing that in a variable called ~num~:
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   xs, ys = [], []
 
   for w in words[:1]:
@@ -1158,16 +1083,14 @@ using [[https://pytorch.org/docs/stable/generated/torch.Tensor.nelement.html][ne
 #+end_src
 
 #+RESULTS:
-:results:
 : number of examples: 5
-:end:
 
 We will now optimize our neural network with a similar forward and backward pass
 like we did in the previous section of this repository. To start let's recreate
 our weights using a set seed like before. We will also pass in ~requires_grad~
 to ~True~ so that PyTorch gives our leaf nodes a gradient value, which it
 doesn't by default:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   # randomly initialize 27 neurons' weights. Each neuron receives 27 inputs
   g = torch.Generator().manual_seed(2147483647)
   # requires_grad = True is required to tell PyTorch we want gradients
@@ -1175,7 +1098,7 @@ doesn't by default:
 #+end_src
 
 To do a forward pass now and populate our gradients we would do the following:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   xenc = F.one_hot(xs, num_classes=27).float() # input to the net: one-hot encoding
   logits = xenc @ W # predict log-counts
   counts = logits.exp() # counts is equivalent to N
@@ -1189,22 +1112,20 @@ character. We actually want to look at the log probability so we pass that in
 to ~.log()~ and finally we average that out using ~.mean()~. This will give us
 the negative loss so we can negate that to get a positive loss value:
 #+name: nnloss
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   loss = -probs[torch.arange(num), ys].log().mean()
   loss.item()
 #+end_src
 
 We can see that we get the same loss as we did before:
 #+RESULTS: nnloss
-:results:
 : 3.7693049907684326
-:end:
 
 Now that we have completed our forward pass of the neural network we can do our
 backward pass. We first want to reset our gradients. We could set our gradients
 to =0=, but we can also set our gradient to ~None~ which will be interpreted as
 no gradient has been set. Setting gradient to ~None~ is also more efficient:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   W.grad = None # set the gradient to zero
   loss.backward()
 #+end_src
@@ -1212,13 +1133,13 @@ no gradient has been set. Setting gradient to ~None~ is also more efficient:
 Now we can adjust our weights by multiplying our weights' gradient by some
 value and adding this product to our weights value like we did in the previous
 section of this repository:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   W.data += -0.1 * W.grad
 #+end_src
 
 If we look at our loss now:
 #+name: nnloss2
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   xenc = F.one_hot(xs, num_classes=27).float() # input to the net: one-hot encoding
   logits = xenc @ W # predict log-counts
   counts = logits.exp() # counts is equivalent to N
@@ -1230,14 +1151,12 @@ If we look at our loss now:
 We can see now that our loss has dropped to ~3.749...~ meaning we have reduced
 our loss and successfully optimized our neural network:
 #+RESULTS: nnloss2
-:results:
 : 3.7492127418518066
-:end:
 
 So now we see how we can train our neural network let's put this all together
 and train our neural network on our entire dataset instead of just the first
 word:
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   xs, ys = [], []
 
   for w in words:
@@ -1254,13 +1173,11 @@ word:
 #+end_src
 
 #+RESULTS:
-:results:
 : number of examples:  228146
-:end:
 
 We can then iterate over our neural network ~100~ times forward passing, back
 propagating, and updating each time:
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   g = torch.Generator().manual_seed(2147483647)
   W = torch.randn((27, 27), generator=g, requires_grad=True)
 
@@ -1286,10 +1203,8 @@ propagating, and updating each time:
 #+end_src
 
 #+RESULTS:
-:results:
 : back propagating nn...
-: 2.4728758335113525
-:end:
+: 2.4728763103485107
 
 We have now trained our neural network! Unfortunately as you may have noticed we
 have gotten almost the same loss as we had before we reimplemented our bigram
@@ -1303,7 +1218,7 @@ with a bigram language model.
 
 Finally let's sample from our new neural network:
 #+name: sampling5
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   g = torch.Generator().manual_seed(2147483647)
 
   for i in range(5):
@@ -1325,13 +1240,12 @@ Finally let's sample from our new neural network:
 We actually got about the same results as we did previously and they still
 aren't really great:
 #+RESULTS: sampling5
-:results:
 : junide
 : janasah
 : p
 : cfay
 : a
-:end:
+
 This is either lame or really cool depending on how you look at. On one hand our
 generated names still aren't really useful, but on the other hand our neural
 network performs minimally better than our probability matrix. The real reason
@@ -1339,7 +1253,7 @@ these names aren't useful is still due to the limitation of a bigram language
 model.
 
 This conclude this section of this repository. For the next section please refer
-to: [[../multilayer-perceptron][multilayer-perceptron]].
+to: [[../multilayer-perceptron/README.org][multilayer-perceptron]].
 
 # Local Variables:
 # org-image-actual-width: (1024)
