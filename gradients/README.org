@@ -53,7 +53,7 @@ We can see that if we give our function a simple input of =3.0= we get back:
 
 Now let's plot out this function so that we can see it's shape:
 #+name: xs
-#+begin_src python :exports both :results value drawer
+#+begin_src python :exports both :results value raw
   xs = np.arange(-5, 5, 0.25)
   xs
 #+end_src
@@ -61,12 +61,10 @@ Now let's plot out this function so that we can see it's shape:
 We can see that x's is just an array of numbers from =-5= to =5= in steps of
 =0.25=:
 #+RESULTS: xs
-:results:
 [-5.   -4.75 -4.5  -4.25 -4.   -3.75 -3.5  -3.25 -3.   -2.75 -2.5  -2.25
  -2.   -1.75 -1.5  -1.25 -1.   -0.75 -0.5  -0.25  0.    0.25  0.5   0.75
   1.    1.25  1.5   1.75  2.    2.25  2.5   2.75  3.    3.25  3.5   3.75
   4.    4.25  4.5   4.75]
-:end:
 
 We can then get a set of y's by calling ~f~ on our =xs=:
 #+name: ys
