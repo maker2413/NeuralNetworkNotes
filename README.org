@@ -10,6 +10,6 @@ If this is your first time diving into Neural Networks I would highly recommend:
 If you are following along with the playlist linked above I would look at the
 directories in this repo in this order:
 - [[./gradients/README.org][gradients]].
-- [[./back-propagation/][back propagation]].
+- [[./back-propagation/README.org][back propagation]].
 - [[./bigram-language-model/][bigram language model]].
 - [[./multilayer-perceptron/][multilayer perceptron]].

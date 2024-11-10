@@ -1,9 +1,15 @@
 #+TITLE: Micrograd
-#+PROPERTY: header-args:jupyter-python :session micrograd
-#+PROPERTY: header-args:jupyter-python+ :async yes
-#+PROPERTY: header-args:jupyter-python+ :tangle micrograd.py
-#+PROPERTY: header-args:jupyter-python+ :results raw drawer
-#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+#+PROPERTY: header-args:python :session micrograd
+#+PROPERTY: header-args:python+ :tangle micrograd.py
+#+PROPERTY: header-args:python+ :results output
+#+PROPERTY: header-args:python+ :shebang "#!/usr/bin/env python"
+
+#+BEGIN_SRC elisp :exports none :results none
+  ;; This will make org-babel use the .venv directory in this repo
+  (setq org-babel-python-command (concat
+                                  (file-name-directory (or load-file-name (buffer-file-name)))
+                                  ".venv/bin/python"))
+#+END_SRC
 
 This is the second part of my notes on neural networks. The first part was on
 [[../gradients/][gradients]] and that part should be viewed first if this neural networks are new

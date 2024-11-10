@@ -100,7 +100,7 @@ network would be tens of thousand of expressions long. In our simple example
 here though of a parabola we can look at the [[https://en.wikipedia.org/wiki/Derivative#Definition][definition of derivative]] and look
 at a couple of test cases:
 #+name: xincrease
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   h = 0.0001
   x = 3.0
   f(x + h)
@@ -109,13 +109,11 @@ at a couple of test cases:
 We can see that if we slightly increase our =x= around point =3= our result is
 slightly bigger as well, which lines up with our above graph:
 #+RESULTS: xincrease
-:results:
 : 20.001400030000006
-:end:
 
 If we then run this through our derivative calculation:
 #+name: derivative
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   (f(x + h) - f(x))/h
 #+end_src
 
@@ -123,12 +121,10 @@ We can get an approximation of our slope at this point. Decreasing the value
 of =h= closer and closer to =0= would give us a more and more accurate
 approximation.
 #+RESULTS: derivative
-:results:
 : 14.000300000063248
-:end:
 
 Now let's look at a more complex case:
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   a = 2.0
   b = -3.0
   c = 10.0
@@ -136,14 +132,13 @@ Now let's look at a more complex case:
   print(d)
 #+end_src
 
+This makes the value of =d=:
 #+RESULTS:
-:results:
 : 4.0
-:end:
 
 Now let's look at the derivatives of =d= with respect to =a=, =b=, and =c=:
 #+name: slope
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   h = 0.0001
 
   # inputs
@@ -163,15 +158,13 @@ Now let's look at the derivatives of =d= with respect to =a=, =b=, and =c=:
 We can see that increasing =a= causes the output of =d= to decrease. We can
 also see that the slope is equal to =b=:
 #+RESULTS: slope
-:results:
 : d1: 4.0
 : d2: 3.999699999999999
 : slope: -3.000000000010772
-:end:
 
 With that in mind let's look what happens when we increase the value of =b=:
 #+name: slope2
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   h = 0.0001
 
   # inputs
@@ -191,15 +184,13 @@ With that in mind let's look what happens when we increase the value of =b=:
 We can see in this case that increasing =b= increases the output of =d=. Also
 this time our slope is equal to the value of =a=:
 #+RESULTS: slope2
-:results:
 : d1: 4.0
 : d2: 4.0002
 : slope: 2.0000000000042206
-:end:
 
 Finally we can look at what happens when we increase =c=:
 #+name: slope3
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both
   h = 0.0001
 
   # inputs
@@ -221,11 +212,9 @@ this case is equal to =1=. This is because increasing =c= directly effects the
 outcome of =d= because it is not being multiplied by another value like =a=
 and =b= were:
 #+RESULTS: slope3
-:results:
 : d1: 4.0
 : d2: 4.0001
 : slope: 0.9999999999976694
-:end:
 
 The slopes in all of the above examples essentially tell us how much weight each
 of these values has on the final outcome of our equation. Using this information
@@ -242,7 +231,7 @@ whole problem.
 
   To begin this effort let's create a couple of functions to graph math
   equations using the =Digraph= library:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     # trace pieces together all of the nodes in our math problems
     def trace(root):
         # builds a set of all nodes and edges in a graph
@@ -287,7 +276,7 @@ whole problem.
 
   Now we will create a python class called =Value= where we will define how we
   can represent and manipulate data in our equations:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     # Our Value class implements logic similar to a Tensor class found in PyTorch
     class Value:
         def __init__(self, data, _children=(), _op='', label=''):
@@ -321,7 +310,7 @@ whole problem.
   #+end_src
 
   As the comment in our code says this =Value= class implements logic similar to
-  the Tensor class that can be found in =PyTorch=, which is the leading python
+  the Tensor class that can be found in [[https://pytorch.org/][PyTorch]], which is the leading python
   library for neural networks at the time of writing this.
 
   If you aren't too familiar with python this code could look a little daunting,
@@ -329,10 +318,10 @@ whole problem.
   create values of data. The double underscore functions essentially just allow
   us to override and define how operators work with our =Value= class. The
   ~__init__~ function allows us to define what happens when a value is
-  created. To see a more in depth list of this "dunder" methods refer to: [[https://blog.finxter.com/python-list-of-dunder-methods/][this]].
+  created. To see a more in depth list of these "dunder" methods refer to: [[https://blog.finxter.com/python-list-of-dunder-methods/][this]].
 
   Now let's create some variables using our new =Value= class:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     a = Value(2.0, label='a')
     b = Value(-3.0, label='b')
     c = Value(10.0, label='c')
@@ -345,15 +334,13 @@ whole problem.
   And now we can visualize our entire equation we built out with the ~draw_dot~
   function we defined earlier:
   #+name: graph
-  #+begin_src jupyter-python :exports both :file images/graph.svg
+  #+begin_src python :exports both :results value file :file images/graph.svg
     draw_dot(L)
   #+end_src
 
   This will give us the following graph:
   #+RESULTS: graph
-  :results:
   [[file:images/graph.svg]]
-  :end:
 
   So now we have successfully created and graphed our equation. Next we are
   going to set each of the gradients for each of the nodes in our equation. We
@@ -366,7 +353,7 @@ whole problem.
   our final node in this equation and is the answer to our problem increasing
   =L= would directly increase our output so therefore =L= has a gradient of
   =1=. Let's start with =L= and work backwards:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     # Manually back propagating the gradients for each node.
     # for information on how this is done:
     # https://en.wikipedia.org/wiki/Derivative#Rules_of_computation
@@ -378,14 +365,14 @@ whole problem.
   value ~h~ each to a node and dividing ~L2 - L1~ by ~h~ or we can go over some
   of the basic rules of gradients.
 
-  When we were calculating the slope of previous equation in the first section
+  When we were calculating the slope of a previous equation in the first section
   of this article we discovered that =a= had a slope equal to =b= and =b= had a
   slope equal to =a=. This is because one of the rules of calculating gradients
   with respect to the root node is that when two nodes are being multiplied the
   gradient of each node will be the data of the node it is being multiplied with
   times the gradient of their product. With this in mind we can fill in the
   gradients of =d= and =f=:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     f.grad = d.data * L.grad
     d.grad = f.data * L.grad
   #+end_src
@@ -405,7 +392,7 @@ whole problem.
     https://en.wikipedia.org/wiki/Hyperbolic_functions
 
   With these in mind let's fill in the gradients of our other nodes:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     c.grad = d.grad
     e.grad = d.grad
     a.grad = b.data * e.grad
@@ -418,18 +405,16 @@ whole problem.
 
   Finally let's draw our backpropagated problem at this point:
   #+name: graph2
-  #+begin_src jupyter-python :exports both :file images/graph2.svg
+  #+begin_src python :exports both :results value file :file images/graph2.svg
     draw_dot(L)
   #+end_src
 
   #+RESULTS: graph2
-  :results:
   [[file:images/graph2.svg]]
-  :end:
 
   This does cover the concept of back propagating gradients, but just to hammer
   it in let's look at a more complex example:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     # inputs x1,x2
     x1 = Value(2.0, label='x1')
     x2 = Value(0.0, label='x2')
@@ -450,19 +435,17 @@ whole problem.
 
   Now let's graph out this equation:
   #+name: graph3
-  #+begin_src jupyter-python :exports both :file images/graph3.svg
+  #+begin_src python :exports both :results value file :file images/graph3.svg
     draw_dot(o)
   #+end_src
 
   This will give us:
   #+RESULTS: graph3
-  :results:
   [[file:images/graph3.svg]]
-  :end:
 
   Now let's set each node's gradient starting with =o= by following the rules
   stated above:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     o.grad = 1.0
     n.grad = 1 - (o.data**2)
     x1w1x2w2.grad = n.grad
@@ -478,22 +461,20 @@ whole problem.
   With that out of the way we can graph our equation again to see if all of our
   gradients are set:
   #+name: graph4
-  #+begin_src jupyter-python :exports both :file images/graph4.svg
+  #+begin_src python :exports both :results value file :file images/graph4.svg
     draw_dot(o)
   #+end_src
 
   Which gives us:
   #+RESULTS: graph4
-  :results:
   [[file:images/graph4.svg]]
-  :end:
 
   Manual backpropagation is quite tedious and unfeasible though so going forward
   we won't be doing this manually anymore thankfully.
 
   That covers the core concept of how an equation is back propagated. For more
   information on how this is actually useful to use you should check out the
-  next section of my notes: [[../back-propagation/][back propagation]]
+  next section of my notes: [[../back-propagation/README.org][back propagation]]
 
 # Local Variables:
 # org-image-actual-width: (1024)
