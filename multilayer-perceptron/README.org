@@ -533,7 +533,46 @@ shape of ~X~ and ~Y~:
 #+RESULTS:
 | torch.Size | ((32 3)) | torch.Size | ((32)) |
 
+Now let us build out our variables using a generator with a set seed for
+reproducibility:
+#+begin_src python :results none
+  g = torch.Generator().manual_seed(2147483647) # for reproducibility
+  C = torch.randn((27, 2), generator=g)
+  W1 = torch.randn((6, 100), generator=g)
+  b1 = torch.randn(100, generator=g)
+  W2 = torch.randn((100, 27), generator=g)
+  b2 = torch.randn(27, generator=g)
 
+  parameters = [C, W1, b1, W2, b2]
+#+end_src
+
+The only new variable is ~parameters~ which we are just using to cluster all of
+the other parameters together so we can do things like:
+#+name: parametersum
+#+begin_src python :exports both :tangle no
+  sum(p.nelement() for p in parameters) # number of parameters in total
+#+end_src
+
+This tells us that current we have this many total parameters:
+#+RESULTS: parametersum
+: 3481
+
+Now let's also rebuild our variables from the forward pass we did above:
+#+name: rebuildloss
+#+begin_src python :exports both
+  emb = C[X] # (32, 3, 2)
+  h = torch.tanh(emb.view(-1, 6) @ W1 + b1) # (32, 100)
+  logits = h @ W2 + b2 # (32, 27)
+  counts = logits.exp()
+  prob = counts / counts.sum(1, keepdims=True)
+  loss = -prob[torch.arange(32), Y].log().mean()
+
+  loss
+#+end_src
+
+With our generator set to seed we have a loss of:
+#+RESULTS: rebuildloss
+: tensor(17.7697)
 
 # Local Variables:
 # org-image-actual-width: (1024)
