@@ -1,26 +1,32 @@
 #+TITLE: Micrograd
-#+PROPERTY: header-args:jupyter-python :session micrograd
-#+PROPERTY: header-args:jupyter-python+ :async yes
-#+PROPERTY: header-args:jupyter-python+ :tangle micrograd.py
-#+PROPERTY: header-args:jupyter-python+ :results raw drawer
-#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+#+PROPERTY: header-args:python :session micrograd
+#+PROPERTY: header-args:python+ :tangle micrograd.py
+#+PROPERTY: header-args:python+ :results output
+#+PROPERTY: header-args:python+ :shebang "#!/usr/bin/env python"
+
+#+BEGIN_SRC elisp :exports none :results none
+  ;; This will make org-babel use the .venv directory in this repo
+  (setq org-babel-python-command (concat
+                                  (file-name-directory (or load-file-name (buffer-file-name)))
+                                  ".venv/bin/python"))
+#+END_SRC
 
 This is the second part of my notes on neural networks. The first part was on
-[[../gradients/][gradients]] and that part should be viewed first if this neural networks are new
-to you.
+[[../gradients/README.org][gradients]] and that part should be viewed first if neural networks are new to
+you.
 
 This is simply my reimplementation of [[https://github.com/karpathy/micrograd][micrograd]] and exists only for me to learn
 more about neural network technologies. I worked on this while following along
 with this video: https://www.youtube.com/watch?v=VMj-3S1tku0.
 
-#+begin_src jupyter-python :results none :exports none
+#+begin_src python :results none :exports none
   # This file was generated from the code blocks in ./README.org.
 #+end_src
 
 In the previous section of this repo we built out a couple of functions to graph
 our equations and we will be reusing these functions in this example. Let's
 start by importing some python libraries:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   #!/usr/bin/env python
   # Same libraries as before:
   import math
@@ -28,7 +34,7 @@ start by importing some python libraries:
 #+end_src
 
 Now let's create those graphing functions previously mentioned:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   # Same trace function as before:
   def trace(root):
       # builds a set of all nodes and edges in a graph
@@ -78,7 +84,7 @@ propagation.
 We are going to start doing this by reimplementing the =Value= class we had
 previous built out in the last section, however this time we are going to expand
 its functionality to support a few more [[https://blog.finxter.com/python-list-of-dunder-methods/][dunder]] methods to expand its
-capabilities. We are also going to a new property to our init method called
+capabilities. We are also going to add a new property to our init method called
 ~_backward~. This property will be used to keep track how each of our nodes are
 chained together so that we can walk backwards through our nodes. Along with
 this each of our operator dunder methods will now have to track which node they
@@ -91,7 +97,7 @@ on our root node to kick off this backwards walkthrough of our equation.
 
 That was a lot to explain but it should all make sense when you read through
 it. With all of that explanation out of the way here is our new =Value= class:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   # This Value class has been expanded upon from gradients section
   class Value:
       def __init__(self, data, _children=(), _op='', label=''):
@@ -198,12 +204,11 @@ it. With all of that explanation out of the way here is our new =Value= class:
           self.grad = 1.0
           for node in reversed(topo):
               node._backward()
-
 #+end_src
 
 Now let's reimplement the final equation we put together in the last section and
 see if we can automatically back propagate the gradients in our equation:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   # inputs x1,x2
   x1 = Value(2.0, label='x1')
   x2 = Value(0.0, label='x2')
@@ -224,25 +229,23 @@ see if we can automatically back propagate the gradients in our equation:
 
 With those redeclared in our new =Value= class we should be able to kick off
 back propagation like this:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   # back propagate gradient
   o.backward()
 #+end_src
 
 Let's now graph our equation and see if it looks right:
 #+name: graph
-#+begin_src jupyter-python :tangle no :exports both :file images/graph.svg
+#+begin_src python :tangle no :exports both :results value file :file images/graph.svg
   draw_dot(o)
 #+end_src
 
 #+RESULTS: graph
-:results:
 [[file:images/graph.svg]]
-:end:
 
 Yes! We have successfully back propagated automatically. Let's also test out
 some of the other operations we added to our =Value= class:
-#+begin_src jupyter-python :tangle no :results none
+#+begin_src python :tangle no :results none
   # inputs x1,x2
   x1 = Value(2.0, label='x1')
   x2 = Value(0.0, label='x2')
@@ -267,21 +270,19 @@ some of the other operations we added to our =Value= class:
 
 And now let's see if we can successfully back propagate this and graph it:
 #+name: graph2
-#+begin_src jupyter-python :tangle no :exports both :file images/graph2.svg
+#+begin_src python :tangle no :exports both :results value file :file images/graph2.svg
   o.backward()
 
   draw_dot(o)
 #+end_src
 
 #+RESULTS: graph2
-:results:
 [[file:images/graph2.svg]]
-:end:
 
 At this point our =Value= class implements much of the same logic that exists in
-=PyTorch= so let's take a look at how this same equation could be built using
+[[https://pytorch.org/][PyTorch]] so let's take a look at how this same equation could be built using
 =PyTorch=. Let's begin by import =PyTorch=:
-#+begin_src jupyter-python :results none :tangle no
+#+begin_src python :results none :tangle no
   import torch
 #+end_src
 
@@ -292,7 +293,7 @@ PyTorch doesn't keep track of gradient values for leaf nodes. This is done for
 efficiency as normally you would not need to track gradients for your input
 data. You will also notice that we are casting each of Tensors to ~double~ so
 that the Tensors will be in ~float64~ to match our =Value= class above:
-#+begin_src jupyter-python :results none :tangle no
+#+begin_src python :results none :tangle no
   x1 = torch.Tensor([2.0]).double();               x1.requires_grad = True
   x2 = torch.Tensor([0.0]).double();               x2.requires_grad = True
   w1 = torch.Tensor([-3.0]).double();              w1.requires_grad = True
@@ -309,7 +310,7 @@ take note that when we want to print the value of an object when using PyTorch
 we use ~.item()~ to print the value. Without this we will simply print out the
 tensor data (this does include the value, but it also includes the shape and
 data type of the tensor):
-#+begin_src jupyter-python :exports both :tangle no
+#+begin_src python :exports both :tangle no
   # Let's print out the value of o to confirm it is the same as our above example
   print(o.data.item())
 
@@ -318,13 +319,11 @@ data type of the tensor):
 #+end_src
 
 #+RESULTS:
-:results:
 : 0.7071066904050358
-:end:
 
 We did in fact get the same value for =o=. Let's also print out the gradients of
 our inputs and see if we get the same results as before:
-#+begin_src jupyter-python :exports both :tangle no
+#+begin_src python :exports both :tangle no
   print('---')
   print('x2', x2.grad.item())
   print('w2', w2.grad.item())
@@ -333,20 +332,18 @@ our inputs and see if we get the same results as before:
 #+end_src
 
 #+RESULTS:
-:results:
 : ---
 : x2 0.5000001283844369
 : w2 0.0
 : x1 -1.5000003851533106
 : w1 1.0000002567688737
-:end:
 
 We did get the same results! This means we have successfully automated back
 propagation using our =Value= class and confirmed that it matches the outputs of
 PyTorch.
 
 * Implementing micrograd
-  So to continue we are going to build out neural network using our =Value=
+  So to continue we are going to build out a neural network using our =Value=
   class that we created. Before we do that though let's talk about how the math
   we built out actually replicates a neural network ([[https://cs231n.github.io/convolutional-networks/][reference]]).
 
@@ -382,7 +379,7 @@ PyTorch.
   to implement the function we shown above. Finally we will have a parameters
   function which will come in handy latter to get a collection of all of the
   parameters in our neural network:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     import random
 
     class Neuron:
@@ -404,7 +401,7 @@ PyTorch.
 
   To test this let's create a neuron with 2 inputs:
   #+name: nueron
-  #+begin_src jupyter-python :exports both
+  #+begin_src python :exports both :results value
     x = [2.0, 3.0]
     n = Neuron(2)
 
@@ -414,9 +411,7 @@ PyTorch.
   Every time we create a neuron will get a random weight and bias value so we
   will get a different output. This time we got:
   #+RESULTS: nueron
-  :results:
-  : Value(data=0.33548597941008335)
-  :end:
+  : Value(data=-0.7456999028183978)
 
   The next layer of abstraction in our diagram of neural networks is that we
   need to have layers of neurons. When we have a layer of neurons the neurons
@@ -428,7 +423,7 @@ PyTorch.
   output neurons so that we can chain layers together (outs). We also keep
   track of the parameters within each layer, which in this case is essentially
   a list of each of the neurons parameters:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     # Let's create a layer of Neurons
     class Layer:
         # nout = Number of output Neurons
@@ -446,7 +441,7 @@ PyTorch.
 
   So now we can create a layer of neurons:
   #+name: layer
-  #+begin_src jupyter-python :exports both
+  #+begin_src python :exports both :results value
     x = [2.0, 3.0]
     # A layer with 2 inputs and 3 outputs
     n = Layer(2, 3)
@@ -457,9 +452,7 @@ PyTorch.
   Again every time we create a layer we are going to get random weights and
   biases on our neurons, but this time we got the following:
   #+RESULTS: layer
-  :results:
-  | Value | (data=-0.9400793949715526) | Value | (data=0.9140586663774759) | Value | (data=0.9615660989674627) |
-  :end:
+  | Value | (data=0.9990667395435969) | Value | (data=-0.9355456730994919) | Value | (data=-0.9998489475194482) |
 
   It is also worth noting that in our =Layer= class we defined an if statement
   on our return where if we are looking at the last layer we can just return our
@@ -473,7 +466,7 @@ PyTorch.
   define the sizes of all of the layers in our MLP. We will also yet again have
   a parameters function which will keep track of each of the parameters in each
   layer in our MLP:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     # Let's create an MLP (Multi Layer Perceptron)
     class MLP:
         # nouts = list of nout
@@ -492,7 +485,7 @@ PyTorch.
 
   Now let's create an MLP using our =MLP= class:
   #+name: mlp
-  #+begin_src jupyter-python :exports both
+  #+begin_src python :exports both :results value
     x = [2.0, 3.0, -1.0]
     # 3 inputs into 2 layers of 4 and 1 output
     n = MLP(3, [4, 4, 1])
@@ -502,14 +495,12 @@ PyTorch.
 
   With this we get the result of a forward pass of our MLP, this time we got:
   #+RESULTS: mlp
-  :results:
-  : Value(data=-0.790206267391274)
-  :end:
+  : Value(data=0.3959494112343071)
 
   At this point we can actually run ~draw_dot~ on our MLP to get a graph of our
   entire network:
   #+name: mlpgraph
-  #+begin_src jupyter-python :exports both :file images/mlpgraph.svg
+  #+begin_src python :exports both :results value file :file images/mlpgraph.svg
     draw_dot(n(x))
   #+end_src
 
@@ -517,16 +508,14 @@ PyTorch.
   why manually calculating the gradients of our nodes would be infeasible at
   this point:
   #+RESULTS: mlpgraph
-  :results:
   [[file:images/mlpgraph.svg]]
-  :end:
 
 * Back Propagation
   So now that we can build out an entire MLP with our classes let's look at more
   realistic example of how to back propagate our MLP and why we want to back
   propagate our MLP. Let's create a data set which will contain 4 sets of inputs
   for our neural network (=xs=):
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     xs = [
         [2.0, 3.0, -1.0],
         [3.0, -1.0, 0.5],
@@ -537,14 +526,14 @@ PyTorch.
 
   Let's also define the 4 results we would like our neural network to output
   given each set of inputs (=ys=):
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     ys = [1.0, -1.0, -1.0, 1.0] # desired targets
   #+end_src
 
   Let's then get a list of what our neural network currently outputs given these
   inputs (=ypred=):
   #+name: ypred
-  #+begin_src jupyter-python :exports both
+  #+begin_src python :exports both
     ypred = [n(x) for x in xs]
 
     print('ypred:', ypred)
@@ -554,15 +543,13 @@ PyTorch.
   above (keep in mind that if we regenerate our neural network will be given
   different weights and biases):
   #+RESULTS: ypred
-  :results:
-  : ypred: [Value(data=-0.790206267391274), Value(data=-0.7310181701096696), Value(data=0.7341967057517118), Value(data=-0.7862416973918567)]
-  :end:
+  : ypred: [Value(data=0.3959494112343071), Value(data=0.4606840407779603), Value(data=0.7001731454712636), Value(data=0.5676085615720814)]
 
   We can see that currently our outputs are bit off of our target outputs. To
   get an idea of how far off we are we can calculate the [[https://developers.google.com/machine-learning/crash-course/descending-into-ml/training-and-loss][loss]] of our current
   neural network:
   #+name: loss
-  #+begin_src jupyter-python
+  #+begin_src python :exports both
     # ygt = y ground truth
     # yout = y outputs
     loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
@@ -572,20 +559,18 @@ PyTorch.
 
   Currently our neural network has a loss of:
   #+RESULTS: loss
-  :results:
-  : loss: Value(data=9.475287320359579)
-  :end:
+  : loss: Value(data=5.576026061379025)
 
   Now that we have calculated our current loss we can back propagate our neural
   network to get gradients for each of the nodes in our MLP:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     loss.backward()
   #+end_src
 
   We can then graph our neural network to confirm that we have successfully back
   propagated:
   #+name: mlpgraph2
-  #+begin_src jupyter-python :exports both :file images/mlpgraph2.svg
+  #+begin_src python :exports both :results value file :file images/mlpgraph2.svg
     draw_dot(loss)
   #+end_src
 
@@ -593,9 +578,7 @@ PyTorch.
   by 4 forward passes of a neural network for everyone of the examples as well
   as having a loss on top. Regardless here is the monstrosity itself:
   #+RESULTS: mlpgraph2
-  :results:
   [[file:images/mlpgraph2.svg]]
-  :end:
 
   To tweak our neural network and get a smaller loss, which in turn means we are
   closer to our desired targets, we can tweak each of our parameters (obtained
@@ -605,8 +588,8 @@ PyTorch.
   rubber banding effect were our loss bounces back and forth between increasing
   and decreasing in value. It is also worth noting that our current neural
   network only has about =41= parameters, which is quite small. Some modern day
-  neural networks could billions or even trillions of parameters:
-  #+begin_src jupyter-python :results none
+  neural networks could contain billions or even trillions of parameters:
+  #+begin_src python :results none
     for p in n.parameters():
         p.data += -0.01 * p.grad
   #+end_src
@@ -614,7 +597,7 @@ PyTorch.
   After making these adjustments to our neural network it is important that we
   recalculate our loss and back propagate our new gradient values:
   #+name: loss2
-  #+begin_src jupyter-python :exports both
+  #+begin_src python :exports both
     ypred = [n(x) for x in xs]
     loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
 
@@ -624,29 +607,25 @@ PyTorch.
   We can see that we successfully brought down the total loss of our neural
   network:
   #+RESULTS: loss2
-  :results:
-  : loss: Value(data=9.19517988674704)
-  :end:
+  : loss: Value(data=5.124950117208376)
 
   *Before we back propagate our new gradient values it is very important to zero
   out our gradients!* Let's do that now:
-  #+begin_src jupyter-python :results none
+  #+begin_src python :results none
     for p in n.parameters():
         p.grad = 0.0
   #+end_src
 
   Now let's back propagate and graph our updated neural network:
   #+name: mlpgraph3
-  #+begin_src jupyter-python :exports both :file images/mlpgraph3.svg
+  #+begin_src python :exports both :results value file :file images/mlpgraph3.svg
     loss.backward()
 
     draw_dot(loss)
   #+end_src
 
   #+RESULTS: mlpgraph3
-  :results:
   [[file:images/mlpgraph3.svg]]
-  :end:
 
   Now as fun as it would be to iterate over these steps over and over until we
   reach our desired targets let's put this in a loop to automate the
@@ -658,7 +637,7 @@ PyTorch.
   most efficient to start by tweaking with a larger value and decrease our
   value as we iterate with training:
   #+name: autobackpropagation
-  #+begin_src jupyter-python :exports both
+  #+begin_src python :exports both
     for k in range(100):
         # forward pass
         ypred = [n(x) for x in xs]
@@ -679,132 +658,128 @@ PyTorch.
   We can see through this wall of text that our loss is slowly climbing down to
   =0=!
   #+RESULTS: autobackpropagation
-  :results:
   #+begin_example
-    0 9.19517988674704
-    1 7.773463530852206
-    2 5.8842167358126884
-    3 5.020298342185576
-    4 4.590496457616259
-    5 4.193994949289619
-    6 3.775250373181591
-    7 3.2333463998173833
-    8 2.5403906690379645
-    9 1.790941839760718
-    10 1.1395868990120053
-    11 0.7248291673368925
-    12 0.4936976059194683
-    13 0.36088863649423847
-    14 0.2787105022050324
-    15 0.2242186017315146
-    16 0.18600126960400276
-    17 0.15798125680160827
-    18 0.13669797783809817
-    19 0.12006286471222684
-    20 0.1067519951232781
-    21 0.09589076193215451
-    22 0.08688083407247216
-    23 0.0793004951192548
-    24 0.07284478172665726
-    25 0.0672881897176877
-    26 0.06246068558300173
-    27 0.05823183666392655
-    28 0.054500048004671384
-    29 0.05118509926445999
-    30 0.04822286632940916
-    31 0.04556152094708154
-    32 0.043158750061278735
-    33 0.0409796912451553
-    34 0.03899537921748829
-    35 0.03718156255016868
-    36 0.03551779217373467
-    37 0.03398671194474159
-    38 0.032573501171639145
-    39 0.031265432645138994
-    40 0.03005151933827659
-    41 0.028922229806569093
-    42 0.027869257276245604
-    43 0.026885331028059598
-    44 0.025964061354066155
-    45 0.025099811353167946
-    46 0.02428759032557208
-    47 0.0235229646589145
-    48 0.02280198296416784
-    49 0.022121112885635896
-    50 0.021477187525876316
-    51 0.020867359829628104
-    52 0.0202890635876267
-    53 0.01973997997162472
-    54 0.019218008711051098
-    55 0.01872124318093486
-    56 0.01824794879866299
-    57 0.01779654423049363
-    58 0.01736558499262937
-    59 0.016953749100054552
-    60 0.01655982447235644
-    61 0.0161826978518223
-    62 0.015821345027146935
-    63 0.015474822187622177
-    64 0.015142258258921262
-    65 0.014822848093501498
-    66 0.014515846407011458
-    67 0.01422056236752239
-    68 0.013936354757423889
-    69 0.013662627638835953
-    70 0.013398826462735358
-    71 0.013144434569945657
-    72 0.01289897003892609
-    73 0.012661982841099078
-    74 0.012433052269437594
-    75 0.012211784610314
-    76 0.01199781103230576
-    77 0.011790785668840708
-    78 0.01159038387432952
-    79 0.011396300635828506
-    80 0.011208249124362326
-    81 0.011025959371853147
-    82 0.010849177061191003
-    83 0.01067766241836793
-    84 0.010511189196818106
-    85 0.010349543745172973
-    86 0.010192524150585483
-    87 0.010039939450603242
-    88 0.009891608907305895
-    89 0.009747361338068207
-    90 0.009607034497885194
-    91 0.009470474508704136
-    92 0.009337535331661708
-    93 0.009208078278525475
-    94 0.009081971559000902
-    95 0.008959089860880861
-    96 0.008839313960305857
-    97 0.00872253035965517
-    98 0.00860863095082125
-    99 0.008497512701824767
+  0 5.124950117208376
+  1 3.3448979871857514
+  2 1.922413366446056
+  3 1.066715761444239
+  4 0.6603704147887407
+  5 0.4601183121921437
+  6 0.34707321770147453
+  7 0.27597393808017684
+  8 0.22765440596384562
+  9 0.19290868106483325
+  10 0.16683855219908247
+  11 0.1466213879702255
+  12 0.13052519866241244
+  13 0.11743233645956203
+  14 0.10659130394110561
+  15 0.09747923769453413
+  16 0.08972171871991662
+  17 0.08304395192884875
+  18 0.07723992947749443
+  19 0.07215232485982888
+  20 0.06765901580313456
+  21 0.06366382811568677
+  22 0.06009004011669783
+  23 0.0568757359440989
+  24 0.0539704237156276
+  25 0.05133253568856322
+  26 0.04892755416247665
+  27 0.04672658834188487
+  28 0.04470528088239411
+  29 0.042842958640595466
+  30 0.041121966505607774
+  31 0.03952714002419302
+  32 0.03804538433388286
+  33 0.036665335304010754
+  34 0.03537708481606732
+  35 0.03417195650317007
+  36 0.033042321495586446
+  37 0.0319814461162741
+  38 0.030983365267569604
+  39 0.030042776609477052
+  40 0.029154951666671473
+  41 0.02831566079812288
+  42 0.02752110958017178
+  43 0.026767884634889716
+  44 0.026052907313057688
+  45 0.025373393939216747
+  46 0.024726821563085886
+  47 0.02411089835085169
+  48 0.023523537901816848
+  49 0.022962836898591694
+  50 0.022427055598555755
+  51 0.021914600755452533
+  52 0.021424010626407898
+  53 0.020953941774281056
+  54 0.020503157420347994
+  55 0.020070517139693104
+  56 0.01965496772277805
+  57 0.019255535052619524
+  58 0.018871316868761815
+  59 0.0185014763075189
+  60 0.0181452361233846
+  61 0.0178018735095591
+  62 0.017470715446615666
+  63 0.01715113451775077
+  64 0.01684254513710836
+  65 0.016544400144546247
+  66 0.01625618772611949
+  67 0.015977428624631283
+  68 0.015707673608982252
+  69 0.015446501174831333
+  70 0.01519351545235796
+  71 0.014948344299763067
+  72 0.01471063756361965
+  73 0.014480065489341064
+  74 0.014256317266923136
+  75 0.01403909969876258
+  76 0.013828135977803973
+  77 0.013623164565537126
+  78 0.01342393816048634
+  79 0.013230222748819215
+  80 0.013041796729574513
+  81 0.01285845010777852
+  82 0.012679983749403004
+  83 0.012506208692724357
+  84 0.012336945511181367
+  85 0.012172023723309439
+  86 0.012011281245756875
+  87 0.011854563885769175
+  88 0.011701724869870908
+  89 0.011552624405778042
+  90 0.011407129274848191
+  91 0.011265112452623207
+  92 0.011126452755237002
+  93 0.010991034509662967
+  94 0.010858747245952025
+  95 0.01072948540977559
+  96 0.010603148093732456
+  97 0.010479638786010733
+  98 0.010358865135115946
+  99 0.010240738729482772
   #+end_example
-  :end:
 
   Finally let's see how close we got to our desired outputs and let's redraw our
   graph:
   #+name: mlpgraph4
-  #+begin_src jupyter-python :exports both :file images/mlpgraph4.svg
+  #+begin_src python :exports both :results value file :file images/mlpgraph4.svg
     print('ypred:', ypred)
 
     draw_dot(loss)
   #+end_src
 
   #+RESULTS: mlpgraph4
-  :results:
-  : ypred: [Value(data=0.9582729922372971), Value(data=-0.9642926596870034), Value(data=-0.9379221913278412), Value(data=0.9596552228506491)]
+  : ypred: [Value(data=0.9588109221376478), Value(data=-0.9630639183891877), Value(data=-0.9324852928031447), Value(data=0.9487975705489068)]
   [[file:images/mlpgraph4.svg]]
-  :end:
 
   This actually summarizes the idea behind back propagation and training a
-  neural network. This also work at this point is also basically a rewrite of
+  neural network. This work at this point is also basically a rewrite of
   [[https://github.com/karpathy/micrograd][micrograd]], which in itself is a tiny rewrite of the core concepts of
   =PyTorch=.
 
-  The next section of this repo will cover [[../bigram-language-model][bigram language models]] and will
+  The next section of this repo will cover [[../bigram-language-model/README.org][bigram language models]] and will
   actually start to build out a usable neural network.
 
 # Local Variables:

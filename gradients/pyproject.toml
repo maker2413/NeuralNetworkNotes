@@ -1,7 +1,7 @@
 [project]
 name = "gradients"
 version = "0.1.0"
-description = "Add your description here"
+description = "Studying gradient descent"
 readme = "README.org"
 requires-python = ">=3.12"
 dependencies = [

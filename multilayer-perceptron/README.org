@@ -1,16 +1,22 @@
 #+TITLE: MLP
-#+PROPERTY: header-args:jupyter-python :session mlp
-#+PROPERTY: header-args:jupyter-python+ :async yes
-#+PROPERTY: header-args:jupyter-python+ :tangle mlp.py
-#+PROPERTY: header-args:jupyter-python+ :results raw drawer
-#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+#+PROPERTY: header-args:python :session mlp
+#+PROPERTY: header-args:python+ :tangle mlp.py
+#+PROPERTY: header-args:python+ :results output
+#+PROPERTY: header-args:python+ :shebang "#!/usr/bin/env python"
+
+#+BEGIN_SRC elisp :exports none :results none
+  ;; This will make org-babel use the .venv directory in this repo
+  (setq org-babel-python-command (concat
+                                  (file-name-directory (or load-file-name (buffer-file-name)))
+                                  ".venv/bin/python"))
+#+END_SRC
 
 This directory contains work from [[https://www.youtube.com/watch?v=TCH_1BHY58I&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ&index=4][part 3]] of Neural Networks: Zero to Hero by
 Andrej Karpathy. This directory goes through rebuilding multilayer perceptron of
 [[https://github.com/karpathy/makemore][makemore]].
 
 As we saw in the last section a bigram language model isn't really that good at
-generate unique names for us as it only has context for what character *might*
+generating unique names for us as it only has context for what character *might*
 come after the character it has been provided. This effort is to reimplement the
 same functionality we did in the bigram data model work, but this time in an
 [[https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf][MLP]]. The idea behind a multilayer perceptron can be viewed in the following
@@ -25,7 +31,7 @@ the dataset (these index would be integers ranging from 0-16,999). In the
 diagram they also have a lookup table, ~C~, that is used to lookup the word the
 index correlates to.
 
-#+begin_src jupyter-python :results none :exports none
+#+begin_src python :results none :exports none
   # This file was generated from the code blocks in ./README.org.
 #+end_src
 
@@ -42,7 +48,7 @@ charlotte
 #+end_example
 
 We will begin by importing ~PyTorch~ and ~matplotlib~:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   import torch
   import torch.nn.functional as F
   import matplotlib.pyplot as plt # for making figures
@@ -50,13 +56,13 @@ We will begin by importing ~PyTorch~ and ~matplotlib~:
 
 Then we can begin by opening our =names.txt= file and storing all of the names
 in a variable:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   words = open('names.txt', 'r').read().splitlines()
 #+end_src
 
 Now we can build the vocabulary of characters and mappings for converting to and
 from integers like we did in the [[../bigram-language-model][bigram]] section of this repository:
-#+begin_src jupyter-python :results none
+#+begin_src python :results none
   chars = sorted(list(set(''.join(words))))
   stoi = {s:i+1 for i,s in enumerate(chars)}
   stoi['.'] = 0
