@@ -1,9 +1,15 @@
 #+TITLE: Gradient Descent
-#+PROPERTY: header-args:jupyter-python :session gradients
-#+PROPERTY: header-args:jupyter-python+ :async yes
-#+PROPERTY: header-args:jupyter-python+ :tangle gradients.py
-#+PROPERTY: header-args:jupyter-python+ :results raw drawer
-#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+#+PROPERTY: header-args:python :session gradient
+#+PROPERTY: header-args:python+ :tangle gradients.py
+#+PROPERTY: header-args:python+ :results output
+#+PROPERTY: header-args:python+ :shebang "#!/usr/bin/env python"
+
+#+BEGIN_SRC elisp :exports none :results none
+  ;; This will make org-babel use the .venv directory in this repo
+  (setq org-babel-python-command (concat
+                                  (file-name-directory (or load-file-name (buffer-file-name)))
+                                  ".venv/bin/python"))
+#+END_SRC
 
 This section of this repo simply goes over the concepts of gradients and
 gradient descent math as it relates to neural networks. This work was put
@@ -12,19 +18,19 @@ https://www.youtube.com/watch?v=VMj-3S1tku0.
 
 To begin with let's talk about what it means to "train" neural network or what
 is even going on inside or neural network. At the core of it neural networks use
-[[https://www.khanacademy.org/math/multivariable-calculus/applications-of-multivariable-derivatives/optimizing-multivariable-functions/a/what-is-gradient-descent][gradient descent]] to tweak themselves to get closer to a lower their "loss" or in
+[[https://www.khanacademy.org/math/multivariable-calculus/applications-of-multivariable-derivatives/optimizing-multivariable-functions/a/what-is-gradient-descent][gradient descent]] to tweak themselves to get closer to lower their "loss" or in
 other words get closer to our expected outcome when we provide them with input
 data. This gradient descent operation is performed by [[https://en.wikipedia.org/wiki/Backpropagation][backpropagation]]
-generally. Let's just dive into it from here following along with the video
+generally. Let's just dive into it from here following along with the video 
 linked above.
 
-#+begin_src jupyter-python :results none :exports none
+#+begin_src python :results none :exports none
   # This file was generated from the code blocks in ./README.org.
 #+end_src
 
-To begin learning how gradient descent works like start by importing some
-simple python libraries:
-#+begin_src jupyter-python :results none
+To begin learning how gradient descent works, start by importing some simple
+python libraries:
+#+begin_src python :results none
   import math
   import numpy as np
   import matplotlib.pyplot as plt
@@ -34,24 +40,20 @@ simple python libraries:
 Then let's define a scaler value function ~f~ of ~x~ that runs a simple
 equation on a given value and returns it:
 #+name: fofx
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value
   def f(x):
       return 3*x**2 - 4*x + 5
 
   f(3.0)
 #+end_src
 
-We can see that if we give our function a simple input of =3.0= we get back
-=20.0=.
-
+We can see that if we give our function a simple input of =3.0= we get back:
 #+RESULTS: fofx
-:results:
 : 20.0
-:end:
 
 Now let's plot out this function so that we can see it's shape:
 #+name: xs
-#+begin_src jupyter-python :exports both
+#+begin_src python :exports both :results value drawer
   xs = np.arange(-5, 5, 0.25)
   xs
 #+end_src
@@ -60,11 +62,10 @@ We can see that x's is just an array of numbers from =-5= to =5= in steps of
 =0.25=:
 #+RESULTS: xs
 :results:
-: array([-5.  , -4.75, -4.5 , -4.25, -4.  , -3.75, -3.5 , -3.25, -3.  ,
-:        -2.75, -2.5 , -2.25, -2.  , -1.75, -1.5 , -1.25, -1.  , -0.75,
-:        -0.5 , -0.25,  0.  ,  0.25,  0.5 ,  0.75,  1.  ,  1.25,  1.5 ,
-:         1.75,  2.  ,  2.25,  2.5 ,  2.75,  3.  ,  3.25,  3.5 ,  3.75,
-:         4.  ,  4.25,  4.5 ,  4.75])
+[-5.   -4.75 -4.5  -4.25 -4.   -3.75 -3.5  -3.25 -3.   -2.75 -2.5  -2.25
+ -2.   -1.75 -1.5  -1.25 -1.   -0.75 -0.5  -0.25  0.    0.25  0.5   0.75
+  1.    1.25  1.5   1.75  2.    2.25  2.5   2.75  3.    3.25  3.5   3.75
+  4.    4.25  4.5   4.75]
 :end:
 
 We can then get a set of y's by calling ~f~ on our =xs=:
