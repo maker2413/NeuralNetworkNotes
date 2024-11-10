@@ -25,11 +25,14 @@ diagram:
 
 This is image was built with the mind set of the example provided in the MLP
 document linked above, wherein the neural network was built with a dataset of
-17,000 possible words. In the above image we can see that three indexes are
-being passed into the neural network. These indexes are the index of the word in
-the dataset (these index would be integers ranging from 0-16,999). In the
-diagram they also have a lookup table, ~C~, that is used to lookup the word the
-index correlates to.
+17,000 possible words. These 17,000 words were crammed into a 30 dimensional
+array. Through back propagation the hidden layers of the neural network would
+move these nodes around in the 30 dimensional space so that words that appear
+together more often would be closer together within the array. In the above
+image we can see that three indexes are being passed into the neural
+network. These indexes are the index of the word in the dataset (this index
+would be integers ranging from 0-16,999). In the diagram they also have a lookup
+table, ~C~, that is used to lookup the word the index correlates to.
 
 #+begin_src python :results none :exports none
   # This file was generated from the code blocks in ./README.org.
@@ -60,6 +63,15 @@ in a variable:
   words = open('names.txt', 'r').read().splitlines()
 #+end_src
 
+Let's just confirm how many names we have:
+#+begin_src python :exports both :results value :tangle no
+  len(words)
+#+end_src
+
+Result:
+#+RESULTS:
+: 32033
+
 Now we can build the vocabulary of characters and mappings for converting to and
 from integers like we did in the [[../bigram-language-model][bigram]] section of this repository:
 #+begin_src python :results none
@@ -68,6 +80,351 @@ from integers like we did in the [[../bigram-language-model][bigram]] section of
   stoi['.'] = 0
   itos = {i:s for s,i in stoi.items()}
 #+end_src
+
+We can output the contents of itos:
+#+begin_src python :exports both :tangle no
+  print(itos)
+#+end_src
+
+And we get:
+#+RESULTS:
+: {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h', 9: 'i', 10: 'j', 11: 'k', 12: 'l', 13: 'm', 14: 'n', 15: 'o', 16: 'p', 17: 'q', 18: 'r', 19: 's', 20: 't', 21: 'u', 22: 'v', 23: 'w', 24: 'x', 25: 'y', 26: 'z', 0: '.'}
+
+Next we have to compile the dataset for the neural network. We will used a
+revised version of the code we used in the bigram language model section:
+#+name: builddataset
+#+begin_src python :exports both
+  # Build the dataset
+  block_size = 3 # context length: how many characters do we take to predict the next one
+  X, Y = [], []
+  for w in words[:5]:
+      print(w)
+      context = [0] * block_size
+      for ch in w + '.':
+          ix = stoi[ch]
+          X.append(context)
+          Y.append(ix)
+          print(''.join(itos[i] for i in context), '--->', itos[ix])
+          context = context[1:] + [ix] # crop and append
+
+  X = torch.tensor(X)
+  Y = torch.tensor(Y)
+#+end_src
+
+Since this is just to demonstrate we limit our for loop to the first 5 names in
+our dataset. Later we will run this loop on the entirety of =names.txt=. We can
+also change our ~block_size~ to any number. Let's say we set ~block_size~ to =4=
+and then we would be predicting the 5th character given a sequence. We are going
+with a ~block_size~ of 3 so we can closely emulate the above digram.
+#+RESULTS: builddataset
+#+begin_example
+emma
+... ---> e
+..e ---> m
+.em ---> m
+emm ---> a
+mma ---> .
+olivia
+... ---> o
+..o ---> l
+.ol ---> i
+oli ---> v
+liv ---> i
+ivi ---> a
+via ---> .
+ava
+... ---> a
+..a ---> v
+.av ---> a
+ava ---> .
+isabella
+... ---> i
+..i ---> s
+.is ---> a
+isa ---> b
+sab ---> e
+abe ---> l
+bel ---> l
+ell ---> a
+lla ---> .
+sophia
+... ---> s
+..s ---> o
+.so ---> p
+sop ---> h
+oph ---> i
+phi ---> a
+hia ---> .
+#+end_example
+
+For now our dataset looks as follows:
+#+begin_src python :exports both :results value drawer :tangle no
+  X.shape, X.dtype, Y.shape, Y.dtype
+#+end_src
+
+From those 5 names we have created a dataset of 32 examples (=X=) with each
+input being 3 integers. We also have created a label (=Y=) of 32 integers.
+
+So =X= looks like:
+#+begin_src python :exports results :results value :tangle no
+  X
+#+end_src
+#+RESULTS:
+#+begin_example
+tensor([[ 0,  0,  0],
+        [ 0,  0,  5],
+        [ 0,  5, 13],
+        [ 5, 13, 13],
+        [13, 13,  1],
+        [ 0,  0,  0],
+        [ 0,  0, 15],
+        [ 0, 15, 12],
+        [15, 12,  9],
+        [12,  9, 22],
+        [ 9, 22,  9],
+        [22,  9,  1],
+        [ 0,  0,  0],
+        [ 0,  0,  1],
+        [ 0,  1, 22],
+        [ 1, 22,  1],
+        [ 0,  0,  0],
+        [ 0,  0,  9],
+        [ 0,  9, 19],
+        [ 9, 19,  1],
+        [19,  1,  2],
+        [ 1,  2,  5],
+        [ 2,  5, 12],
+        [ 5, 12, 12],
+        [12, 12,  1],
+        [ 0,  0,  0],
+        [ 0,  0, 19],
+        [ 0, 19, 15],
+        [19, 15, 16],
+        [15, 16,  8],
+        [16,  8,  9],
+        [ 8,  9,  1]])
+#+end_example
+
+And our labels look like:
+#+begin_src python :exports results :results value :tangle no
+  Y
+#+end_src
+#+RESULTS:
+: tensor([ 5, 13, 13,  1,  0, 15, 12,  9, 22,  9,  1,  0,  1, 22,  1,  0,  9, 19,
+:          1,  2,  5, 12, 12,  1,  0, 19, 15, 16,  8,  9,  1,  0])
+
+So given this, let's now create a neural network that takes these X's and
+predicts the Y's. First let's build the embedding lookup table =C= shown in the
+above diagram. Now in the initial white paper and diagram we looked at we saw
+that 17,000 words were crammed into spaces as small dimensional as 30. In our
+case we have only 27 possible characters so let's try to cram that into
+something as small as say 2 dimensions. Our lookup table will begin with random
+numbers:
+#+begin_src python :results none
+  C = torch.randn((27, 2))
+#+end_src
+
+Before we try embed the contents of X into our lookup table C, let's first try
+to embed a single individual integer like =5=. One way to do that would just be
+to grab the 5th element of C:
+#+begin_src python :exports both :results value :tangle no
+  C[5]
+#+end_src
+
+#+RESULTS:
+: tensor([ 0.1534, -0.9516])
+
+In the last section we used ~one_hot~ encoding. These approaches should actually
+give the same result so let's try that out. We begin by telling ~one_hot~ that
+we want to encode the number =5= and that we have 27 dimensions. If we were to
+just pass in the integer =5= though ~one_hot~ will throw an error as it is
+expecting a tensor data type so we have to actually give a tensor of =5=. It is
+also important to note that the dtype of ~one_hot~ is int64 and our matrix =C=
+has a dtype of float so we have to cast our ~one_hot~ matrix to be a float
+type. We can then do matrix multiplication with our =C= matrix and our ~one_hot~
+matrix as all values in our ~one_hot~ matrix will be zero except for the 5th
+element:
+#+begin_src python :exports both :results value :tangle no
+  F.one_hot(torch.tensor(5), num_classes=27).float() @ C
+#+end_src
+
+And with all of that we can see that we got the same result:
+#+RESULTS:
+: tensor([ 0.1534, -0.9516])
+
+Since these approaches give the same result for the purpose of this chapter we
+are just going to index into =C= because it is much faster. Not only is this
+simple to follow, but we can also index a list into =C= to get multiple embedded
+values:
+#+name: indexexample
+#+begin_src python :exports both :results value :tangle no
+  C[[5,6,7,7,7]]
+#+end_src
+
+This allows us to index multiple values:
+#+RESULTS: indexexample
+: tensor([[ 0.1534, -0.9516],
+:         [ 0.7891, -0.5468],
+:         [-0.5366,  1.6779],
+:         [-0.5366,  1.6779],
+:         [-0.5366,  1.6779]])
+
+We can also index with a multi dimensional tensor so we can also just do:
+#+name: multiindex
+#+begin_src python :exports both :results value :tangle no
+  C[X].shape
+#+end_src
+
+We can see that the shape of this would be 32 by 3 (the original shape of X) and
+for everyone of those 32 by 3 integers we have now added a dimension for the
+embedding vector:
+#+RESULTS: multiindex
+: torch.Size([32, 3, 2])
+
+So what we learned from all of this actually is that embedding with pytorch is
+very powerful so we can simply set =C= of =X= to a variable that we can
+reference:
+#+name: emb
+#+begin_src python :exports both :results value
+  emb = C[X]
+  emb.shape
+#+end_src
+
+#+RESULTS: emb
+: torch.Size([32, 3, 2])
+
+Now if we reference our initial diagram we have officially created our first
+layer of neural network. Now it is time to start building out the hidden layer
+of our neural network. We will call our hidden layer ~W1~ and we will initialize
+it to ~randn~. The shape of ~W1~ will be the number of inputs by the number of
+neurons we want in our hidden layer. In this case our previous layer has 3
+neurons with 2 dimensional outputs so the inputs for ~W1~ will be =3 * 2= or =6=
+and for this example let's just make 100 neurons. We will also initialize our
+bias for each neuron in this layer to a random value:
+#+name: hiddenlayercreation
+#+begin_src python :results none
+  W1 = torch.randn((6, 100))
+  b1 = torch.randn(100)
+#+end_src
+
+Normally we multiply the input (in this case ~emb~) by these weights (=W1=) and
+add our bias (=b1=). The problem with how we declared ~emb~ is that the
+embeddings are stacked up (3 by 2). If we want to be able to do matrix
+multiplication between ~emb~ and our weights we are going to need a way to
+convert or ~emb~ to a 32 by 6 matrix. Now because pytorch is such a large and
+powerful library there is often multiple ways to accomplish any type of
+manipulation we could want to do. One of the approaches available to use is the
+[[https://pytorch.org/docs/stable/generated/torch.cat.html#torch.cat][cat]] function. Now we could setup some sort of hardcoded cat operation that would
+give us a 32 by 6 matrix, but this logic would completely break if we were to
+ever change our ~block_size~ from 3 to say 5. Pytorch comes to the rescue again
+with the [[https://pytorch.org/docs/stable/generated/torch.unbind.html#torch.unbind][unbind]] function. If we use these functions in tandem we can write a
+line of code that will give us tensor two dimensions given a tensor of 3
+dimensions by concatenating the first and second dimension:
+#+name: unbindandcat
+#+begin_src python :exports both :results value :tangle no
+  torch.cat(torch.unbind(emb, 1), 1).shape
+#+end_src
+
+We have done it!
+#+RESULTS: unbindandcat
+: torch.Size([32, 6])
+
+Now even though this works let's take a pause to dive into a little bit about
+how a torch tensor actually works and some of the internal logic we can
+use. Let's begin by creating an array of elements 0-17:
+#+begin_src python :exports both :results value :tangle no
+  a = torch.arange(18)
+  a
+#+end_src
+
+#+RESULTS:
+: tensor([ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17])
+
+It turns out that we can quickly rerepresent this as different size and
+different dimensional tensors by calling ~view~:
+#+name: view
+#+begin_src python :exports both :results value :tangle no
+  a.view(3, 3, 2)
+#+end_src
+
+We can see that as long as our inputs to ~view~ multiply up to our starting size
+we can reformat our tensor to any shape that we want.
+#+RESULTS: view
+#+begin_example
+tensor([[[ 0,  1],
+         [ 2,  3],
+         [ 4,  5]],
+
+        [[ 6,  7],
+         [ 8,  9],
+         [10, 11]],
+
+        [[12, 13],
+         [14, 15],
+         [16, 17]]])
+#+end_example
+
+The reason that we can even do this is because in each tensor there is something
+called the ~storage~. The ~storage~ of a tensor is always just all of the data
+as a one dimensional vector:
+#+name: storage
+#+begin_src python :exports both :results value :tangle no
+  a.storage()
+#+end_src
+
+This one dimensional vector is how a tensor is represented in the computer
+memory:
+#+RESULTS: storage
+#+begin_example
+ 0
+ 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+ 10
+ 11
+ 12
+ 13
+ 14
+ 15
+ 16
+ 17
+[torch.storage.TypedStorage(dtype=torch.int64, device=cpu) of size 18]
+#+end_example
+
+So when we call ~.view~ we are manipulating some attributes of that tensor to
+change how this one dimensional vector is interpreted. If you would like to
+learn more about this topic there is a blog post by ezyang called
+"[[http://blog.ezyang.com/2019/05/pytorch-internals/][PyTorchInternals]]" where he goes into how a tensor is represented. For now we
+should just know that ~view~ is an extreme efficient operation and that we can
+use that change the shape of our ~emb~:
+#+name: embview
+#+begin_src python :exports both :results value :tangle no
+  emb.view(32, 6).shape
+#+end_src
+
+We can see that we were able to convert ~emb~ to a 32 by 6 matrix quite easily!
+#+RESULTS: embview
+: torch.Size([32, 6])
+
+Now we can finally use ~emb~ in our matrix multiplication:
+#+name: settingh
+#+begin_src python :results none
+  h = emb.view(32, 6) @ W1 + b1
+#+end_src
+
+Let's just take a peak at the shape of ~h~:
+#+begin_src python :exports both :results value :tangle no
+  h.shape
+#+end_src
+
+#+RESULTS:
+: torch.Size([32, 100])
 
 # Local Variables:
 # org-image-actual-width: (1024)
