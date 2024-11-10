@@ -1,0 +1,11 @@
+[project]
+name = "bigram-language-model"
+version = "0.1.0"
+description = "Studying bigram language models"
+readme = "README.org"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.9.2",
+    "numpy>=2.1.3",
+    "torch>=2.5.1",
+]

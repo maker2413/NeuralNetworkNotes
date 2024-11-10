@@ -1,9 +1,15 @@
 #+TITLE: Bigram Language Model
-#+PROPERTY: header-args:jupyter-python :session bigram
-#+PROPERTY: header-args:jupyter-python+ :async yes
-#+PROPERTY: header-args:jupyter-python+ :tangle bigram.py
-#+PROPERTY: header-args:jupyter-python+ :results raw drawer
-#+PROPERTY: header-args:jupyter-python+ :shebang "#!/usr/bin/env python"
+#+PROPERTY: header-args:python :session bigram
+#+PROPERTY: header-args:python+ :tangle bigram.py
+#+PROPERTY: header-args:python+ :results output
+#+PROPERTY: header-args:python+ :shebang "#!/usr/bin/env python"
+
+#+BEGIN_SRC elisp :exports none :results none
+  ;; This will make org-babel use the .venv directory in this repo
+  (setq org-babel-python-command (concat
+                                  (file-name-directory (or load-file-name (buffer-file-name)))
+                                  ".venv/bin/python"))
+#+END_SRC
 
 This directory contains work from [[https://www.youtube.com/watch?v=PaCmpygFfXo&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ&index=2][part 2]] of Neural Networks: Zero to Hero by
 Andrej Karpathy. This directory goes through rebuilding bigram functionality of
